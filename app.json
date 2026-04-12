@@ -7,9 +7,14 @@
     "icon": "./assets/images/icon.png",
     "scheme": "businessconnect",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "whatsapp"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,8 +23,16 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.BusinessConnect",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": {
+            "scheme": "tel"
+          }
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -27,6 +40,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {

@@ -16,6 +16,17 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## Push notifications
+
+`expo-notifications` remote push support does not run in Expo Go on SDK 53+. Use a development build instead:
+
+```bash
+npm run build:android:dev
+npm run start:dev-client
+```
+
+Install the development build on your device or emulator, then scan the QR code from the dev-client Metro session.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
