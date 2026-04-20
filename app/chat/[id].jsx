@@ -80,27 +80,38 @@ export default function ChatScreen() {
     const chatRef = doc(db, "chats", id);
 
     // 1. Fetch Chat Metadata & identified participant info
-    const unsubscribeChat = onSnapshot(chatRef, async (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setChatData(data);
+    const unsubscribeChat = onSnapshot(
+      chatRef,
+      async (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setChatData(data);
 
-        // CLEAR UNREAD STATUS for current user
-        updateDoc(chatRef, {
-          unreadBy: arrayRemove(user.uid),
-        });
+          // CLEAR UNREAD STATUS for current user
+          try {
+            await updateDoc(chatRef, {
+              unreadBy: arrayRemove(user.uid),
+            });
+          } catch (err) {
+            console.error("Failed to clear unread status:", err);
+          }
 
-        // 2. Fetch the other user's mobile number for calling/WhatsApp
-        const otherId = data.participants.find((p) => p !== user.uid);
-        if (otherId) {
-          const userDoc = await getDoc(doc(db, "users", otherId));
-          if (userDoc.exists()) {
-            setOtherUserMobile(userDoc.data().phoneNumber); // Ensure your field is named 'phoneNumber'
-            setOtherUserToken(userDoc.data().pushToken || null);
+          // 2. Fetch the other user's mobile number for calling/WhatsApp
+          const otherId = data.participants.find((p) => p !== user.uid);
+          if (otherId) {
+            const userDoc = await getDoc(doc(db, "users", otherId));
+            if (userDoc.exists()) {
+              setOtherUserMobile(userDoc.data().phoneNumber); // Ensure your field is named 'phoneNumber'
+              setOtherUserToken(userDoc.data().pushToken || null);
+            }
           }
         }
+      },
+      (error) => {
+        console.error("Chat metadata listener failed:", error);
+        setLoading(false);
       }
-    });
+    );
 
     return () => {
       unsubscribeChat();
@@ -113,13 +124,20 @@ export default function ChatScreen() {
     const otherId = chatData.participants?.find((p) => p !== user.uid);
     if (!otherId) return;
 
-    const unsubStatus = onSnapshot(doc(db, "users", otherId), (docSnap) => {
-      if (docSnap.exists()) {
-        setOtherUserStatus(docSnap.data().status || "offline");
-      } else {
+    const unsubStatus = onSnapshot(
+      doc(db, "users", otherId),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setOtherUserStatus(docSnap.data().status || "offline");
+        } else {
+          setOtherUserStatus("offline");
+        }
+      },
+      (error) => {
+        console.error("User status listener failed:", error);
         setOtherUserStatus("offline");
       }
-    });
+    );
 
     return () => unsubStatus();
   }, [chatData, user]);
@@ -150,27 +168,34 @@ export default function ChatScreen() {
       orderBy("createdAt", "desc")
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const msgList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
-      setMessages(msgList);
-      setLoading(false);
+        setMessages(msgList);
+        setLoading(false);
 
-      // Show a local notification only for new incoming messages.
-      if (msgList.length > 0) {
-        const latestMsg = msgList[0];
+        // Show a local notification only for new incoming messages.
+        if (msgList.length > 0) {
+          const latestMsg = msgList[0];
 
-        if (latestMsg.senderId !== user.uid && latestMsg.id !== lastNotifiedId) {
-          triggerLocalNotification(latestMsg.senderName, latestMsg.text).catch((err) => {
-            console.error("Local notification failed:", err);
-          });
-          setLastNotifiedId(latestMsg.id);
+          if (latestMsg.senderId !== user.uid && latestMsg.id !== lastNotifiedId) {
+            triggerLocalNotification(latestMsg.senderName, latestMsg.text).catch((err) => {
+              console.error("Local notification failed:", err);
+            });
+            setLastNotifiedId(latestMsg.id);
+          }
         }
+      },
+      (error) => {
+        console.error("Messages listener failed:", error);
+        setLoading(false);
       }
-    });
+    );
 
     return () => unsubscribe();
   }, [id, lastNotifiedId, user]);

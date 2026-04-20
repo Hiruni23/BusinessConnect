@@ -1,56 +1,87 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebaseConfig';
 
 export default function PaymentGateway({ amount, onPaymentSuccess, onCancel }) {
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
 
-  const processPayment = () => {
-    // 🛡️ SIMULATION LOGIC: 
-    // In a real app, you would send this to Stripe/PayPal API
-    if (cardNumber.length < 16 || cvv.length < 3) {
-      alert("Invalid Card Details");
-      return;
+  useEffect(() => {
+    initializePaymentSheet();
+  }, []);
+
+  const initializePaymentSheet = async () => {
+    setLoading(true);
+    try {
+      const createPaymentIntent = httpsCallable(functions, 'createPaymentIntent');
+      
+      const response = await createPaymentIntent({ amount });
+      const { clientSecret } = response.data;
+      
+      if (!clientSecret) throw new Error("No client secret returned");
+
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: "BusinessConnect Inc.",
+        paymentIntentClientSecret: clientSecret,
+        returnURL: 'businessconnect://stripe-redirect',
+        allowsDelayedPaymentMethods: false,
+      });
+
+      if (error) {
+        Alert.alert("Initialization Error", error.message);
+      } else {
+        setReady(true);
+      }
+    } catch (e) {
+      console.error("Initialization Failed:", e);
+      Alert.alert("Error", "Could not initialize secure payment interface.");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const openPaymentSheet = async () => {
+    const { error } = await presentPaymentSheet();
     
-    onPaymentSuccess(); // Proceed to Firebase update
+    if (error) {
+      if (error.code !== 'Canceled') {
+        Alert.alert(`Payment Failed`, error.message);
+      }
+    } else {
+      onPaymentSuccess();
+    }
   };
 
   return (
     <View style={styles.gatewayContainer}>
-      <Text style={styles.gatewayTitle}>Secure Checkout</Text>
+      <Text style={styles.gatewayTitle}>Secure Checkout 🔒</Text>
       <Text style={styles.amountLabel}>Total Investment: ${amount}</Text>
+      
+      <Text style={styles.infoText}>
+        We partner with Stripe to securely process your transactions. Your card details never touch our servers.
+      </Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Card Number</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="4242 4242 4242 4242" 
-          keyboardType="numeric"
-          maxLength={16}
-          onChangeText={setCardNumber}
-        />
-      </View>
-
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <View style={[styles.inputGroup, { width: '45%' }]}>
-          <Text style={styles.label}>Expiry</Text>
-          <TextInput style={styles.input} placeholder="MM/YY" maxLength={5} onChangeText={setExpiry}/>
+      {loading ? (
+        <View style={styles.loaderArea}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+          <Text style={styles.loaderText}>Connecting to Secure Server...</Text>
         </View>
-        <View style={[styles.inputGroup, { width: '45%' }]}>
-          <Text style={styles.label}>CVV</Text>
-          <TextInput style={styles.input} placeholder="123" secureTextEntry maxLength={3} onChangeText={setCvv}/>
-        </View>
-      </View>
+      ) : (
+        <TouchableOpacity 
+          style={[styles.payBtn, !ready && { opacity: 0.5 }]} 
+          onPress={openPaymentSheet} 
+          disabled={!ready}
+        >
+          <Ionicons name="card" size={18} color="#fff" />
+          <Text style={styles.payBtnText}>Pay with Stripe</Text>
+        </TouchableOpacity>
+      )}
 
-      <TouchableOpacity style={styles.payBtn} onPress={processPayment}>
-        <Ionicons name="lock-closed" size={18} color="#fff" />
-        <Text style={styles.payBtnText}>Authorize Payment</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={onCancel}>
+      <TouchableOpacity onPress={onCancel} style={{ marginTop: 25 }}>
         <Text style={styles.cancelText}>Cancel Transaction</Text>
       </TouchableOpacity>
     </View>
@@ -61,10 +92,10 @@ const styles = StyleSheet.create({
   gatewayContainer: { backgroundColor: '#fff', padding: 25, borderRadius: 25, elevation: 10 },
   gatewayTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 5 },
   amountLabel: { fontSize: 16, color: '#4F46E5', fontWeight: '700', marginBottom: 20 },
-  inputGroup: { marginBottom: 15 },
-  label: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 5 },
-  input: { borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingVertical: 8, fontSize: 16 },
-  payBtn: { backgroundColor: '#1E293B', padding: 18, borderRadius: 15, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  infoText: { fontSize: 13, color: '#64748B', lineHeight: 20, marginBottom: 20, fontStyle: 'italic' },
+  loaderArea: { marginVertical: 20, alignItems: 'center' },
+  loaderText: { marginTop: 10, fontSize: 12, color: '#94A3B8' },
+  payBtn: { backgroundColor: '#4F46E5', padding: 18, borderRadius: 15, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   payBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', marginLeft: 10 },
-  cancelText: { textAlign: 'center', marginTop: 15, color: '#94A3B8', fontSize: 12 }
+  cancelText: { textAlign: 'center', color: '#EF4444', fontSize: 13, fontWeight: '600' }
 });

@@ -1,12 +1,14 @@
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
+
 import Splash from "./splash";
 import { auth, db } from "../firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 
 export default function Index() {
   const router = useRouter();
+
 
   useEffect(() => {
     const timer = setTimeout(async () => {

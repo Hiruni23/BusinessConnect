@@ -1,5 +1,8 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const stripe = require("stripe")("sk_test_51TOKSuCDZMl8sA2g91wKmQS6m18tHCQKcb2NV3Iy7kI9maTwb8NzJsDFiy8uROS4aGoV76USDPG1IuSPJ2iVRv6b00keVElovj");
+
 
 admin.initializeApp();
 
@@ -67,3 +70,34 @@ exports.notifyEntrepreneurOnUpdate = onDocumentUpdated(
     console.log("Entrepreneur notified.");
   }
 );
+
+/* =====================================================
+   3️⃣ Create Stripe Payment Intent for Investments
+===================================================== */
+exports.createPaymentIntent = onCall(async (request) => {
+  const { amount, currency } = request.data;
+  const uid = request.auth?.uid;
+
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "You must be logged in.");
+  }
+
+  if (!amount || amount <= 0) {
+    throw new HttpsError("invalid-argument", "Valid amount must be provided.");
+  }
+
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100),
+      currency: currency || "usd",
+      metadata: { uid },
+    });
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+    };
+  } catch (error) {
+    console.error("Stripe Error:", error);
+    throw new HttpsError("internal", "Unable to create payment intent.");
+  }
+});

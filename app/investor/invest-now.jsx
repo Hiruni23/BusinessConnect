@@ -41,31 +41,35 @@ export default function InvestNow() {
     try {
       // 1. CREATE TRANSACTION RECORD (Audit Trail)
       await addDoc(collection(db, "transactions"), {
-        pitchId,
-        pitchTitle,
+        pitchId: pitchId || "unknown_pitch",
+        pitchTitle: pitchTitle || "Unknown Pitch",
         investorId: user.uid,
-        investorEmail: user.email,
-        entrepreneurId: entrepreneurId,
+        investorEmail: user.email || "unknown",
+        entrepreneurId: entrepreneurId || "unknown_entrepreneur",
         amount: numericAmount,
         timestamp: serverTimestamp(),
         type: 'equity_investment'
       });
 
       // 2. UPDATE PITCH DATA (Atomic Increment)
-      const pitchRef = doc(db, "pitches", pitchId);
-      await updateDoc(pitchRef, {
-        raisedAmount: increment(numericAmount),
-        interested: increment(1)
-      });
+      if (pitchId) {
+        const pitchRef = doc(db, "pitches", pitchId);
+        await updateDoc(pitchRef, {
+          raisedAmount: increment(numericAmount),
+          interested: increment(1)
+        });
+      }
 
       // 3. NOTIFY ENTREPRENEUR
-      await addDoc(collection(db, "notifications"), {
-        userId: entrepreneurId,
-        title: "New Investment! 💰",
-        message: `${user.email} has invested $${numericAmount} in ${pitchTitle}.`,
-        isRead: false,
-        createdAt: serverTimestamp()
-      });
+      if (entrepreneurId) {
+        await addDoc(collection(db, "notifications"), {
+          userId: entrepreneurId,
+          title: "New Investment! 💰",
+          message: `${user.email || "Someone"} has invested $${numericAmount} in ${pitchTitle || "your pitch"}.`,
+          isRead: false,
+          createdAt: serverTimestamp()
+        });
+      }
 
       setSuccess(true);
       // Wait 3 seconds to show success then go back

@@ -34,7 +34,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, create, update: if isOwner(userId);
+      // Chat and discovery screens read other users' public profile fields.
+      allow read: if signedIn();
+      allow create, update: if isOwner(userId);
       allow delete: if false;
     }
 
@@ -54,6 +56,14 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status'])
           && resource.data.status == 'Open'
           && (request.resource.data.status == 'accepted' || request.resource.data.status == 'rejected')
+        )
+        || (
+          isInvestor()
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly(['raisedAmount', 'interested'])
+          && request.resource.data.raisedAmount is number
+          && request.resource.data.interested is number
+          && (!(resource.data.raisedAmount is number) || request.resource.data.raisedAmount >= resource.data.raisedAmount)
+          && (!(resource.data.interested is number) || request.resource.data.interested >= resource.data.interested)
         )
       );
 
@@ -81,7 +91,8 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.investorId == request.auth.uid
         && request.resource.data.pitchId is string
-        && request.resource.data.amount is number;
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
 
       allow read: if signedIn() && (
         resource.data.investorId == request.auth.uid

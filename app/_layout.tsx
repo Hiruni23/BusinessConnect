@@ -1,4 +1,5 @@
 import { useFonts } from "expo-font";
+import { StripeProvider } from '@stripe/stripe-react-native';
 import Constants from "expo-constants";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { onAuthStateChanged, type User } from "firebase/auth";
@@ -9,6 +10,7 @@ import { auth, db } from "../firebaseConfig";
 import outfitRegular from "../assets/fonts/Outfit-Regular.ttf";
 import outfitBold from "../assets/fonts/Outfit-Bold.ttf";
 import outfitMedium from "../assets/fonts/Outfit-Medium.ttf";
+
 
 const isExpoGo =
   Constants.executionEnvironment === "storeClient" ||
@@ -49,6 +51,7 @@ export default function RootLayout() {
         return;
       }
 
+
       try {
         const Device = await import("expo-device");
         if (!Device.isDevice) {
@@ -85,7 +88,7 @@ export default function RootLayout() {
           Constants.easConfig?.projectId;
 
         if (!projectId) {
-          console.log("Push token registration skipped because no EAS project ID was found.");
+          console.warn("Push token skipped: No EAS project ID found. Run `npx eas-cli init` in terminal.");
           return;
         }
 
@@ -207,7 +210,7 @@ export default function RootLayout() {
         =============================== */
         if (normalizedRole === "entrepreneur") {
           // Allow entrepreneur segment
-          if (inEntrepreneur || inChat) { 
+          if (inEntrepreneur || inChat) {
             setInitialRouteLoaded(true);
             return;
           }
@@ -288,38 +291,41 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
+    // StripeProvider disabled temporarily for Expo Go compat
+    <StripeProvider publishableKey="pk_test_51TOKSuCDZMl8sA2goQ07y28hYoNTrjiJi8lK2UnIbLQ3DrG1Em4UiAStRncTPqqBVeZnSaM5aNUc3wcKIwkW6Xh600byPZXxqV">
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
 
-      {/* Onboarding */}
-      <Stack.Screen name="onboarding/screen1" />
-      <Stack.Screen name="onboarding/screen2" />
-      <Stack.Screen name="onboarding/screen3" />
+        {/* Onboarding */}
+        <Stack.Screen name="onboarding/screen1" />
+        <Stack.Screen name="onboarding/screen2" />
+        <Stack.Screen name="onboarding/screen3" />
 
-      {/* Auth */}
-      <Stack.Screen name="auth/welcome" />
-      <Stack.Screen name="auth/login" />
-      <Stack.Screen name="auth/signup" />
-      <Stack.Screen name="auth/role-selection" />
-      <Stack.Screen name="auth/investor-selection" />
-      <Stack.Screen name="auth/category-selection" />
+        {/* Auth */}
+        <Stack.Screen name="auth/welcome" />
+        <Stack.Screen name="auth/login" />
+        <Stack.Screen name="auth/signup" />
+        <Stack.Screen name="auth/role-selection" />
+        <Stack.Screen name="auth/investor-selection" />
+        <Stack.Screen name="auth/category-selection" />
 
-      {/* Entrepreneur */}
-      <Stack.Screen name="entrepreneur/dashboard" />
-      <Stack.Screen name="entrepreneur/create-pitch" />
+        {/* Entrepreneur */}
+        <Stack.Screen name="entrepreneur/dashboard" />
+        <Stack.Screen name="entrepreneur/create-pitch" />
 
-      {/* Investor */}
-      <Stack.Screen name="investor/inbox" options={{ headerShown: false }} />
+        {/* Investor */}
+        <Stack.Screen name="investor/inbox" options={{ headerShown: false }} />
 
-      {/* Chat */}
-      <Stack.Screen
-        name="chat/[id]"
-        options={{
-          headerShown: false,
-          animation: "slide_from_right",
-        }}
-      />
-    </Stack>
+        {/* Chat */}
+        <Stack.Screen
+          name="chat/[id]"
+          options={{
+            headerShown: false,
+            animation: "slide_from_right",
+          }}
+        />
+      </Stack>
+    </StripeProvider>
   );
 }
 

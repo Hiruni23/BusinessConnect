@@ -25,9 +25,6 @@ export default function PitchDetails() {
   const [pitch, setPitch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [showInvestModal, setShowInvestModal] = useState(false);
-  const [investmentAmount, setInvestmentAmount] = useState("");
-  const [investing, setInvesting] = useState(false);
 
   useEffect(() => {
     const recordView = async () => {
@@ -117,8 +114,8 @@ export default function PitchDetails() {
     setUpdating(true);
     try {
       await updateDoc(doc(db, "pitches", id), {
+        // Investor rule only allows changing `status` on an Open pitch.
         status: status,
-        updatedAt: serverTimestamp(),
       });
 
       // Update local state so the Message button appears immediately
@@ -136,72 +133,10 @@ export default function PitchDetails() {
 
       Alert.alert("Success", `Pitch ${status}!`);
     } catch (error) {
+      console.error("Status Update Error:", error);
       Alert.alert("Error", "Permission Denied. Check Firestore Rules.");
     } finally {
       setUpdating(false);
-    }
-  };
-
-  const handleInvest = async (amount) => {
-    if (!pitch) return;
-
-    const investor = auth.currentUser;
-    const numericAmount = Number(amount);
-
-    if (!investor) {
-      Alert.alert("Error", "You must be logged in to invest.");
-      return;
-    }
-
-    if (numericAmount <= 0 || Number.isNaN(numericAmount)) {
-      Alert.alert("Error", "Enter a valid amount");
-      return;
-    }
-
-    try {
-      setInvesting(true);
-
-      // 1. Record the transaction
-      await addDoc(collection(db, "transactions"), {
-        pitchId: pitch.id,
-        pitchTitle: pitch.title,
-        investorId: investor.uid,
-        investorName: investor.displayName || investor.email,
-        entrepreneurId: pitch.entrepreneurId,
-        amount: numericAmount,
-        timestamp: serverTimestamp(),
-        status: "completed",
-      });
-
-      // 2. Update the pitch with atomic increments
-      const pitchRef = doc(db, "pitches", pitch.id);
-      await updateDoc(pitchRef, {
-        raisedAmount: increment(numericAmount),
-        interested: increment(1),
-      });
-
-      // 3. Notify entrepreneur
-      await addDoc(collection(db, "notifications"), {
-        userId: pitch.entrepreneurId,
-        title: "New Funding Received!",
-        body: `${investor.email} invested $${numericAmount} in ${pitch.title}`,
-        isRead: false,
-        createdAt: serverTimestamp(),
-      });
-
-      setPitch((prev) => ({
-        ...prev,
-        raisedAmount: Number(prev?.raisedAmount || 0) + numericAmount,
-        interested: Number(prev?.interested || 0) + 1,
-      }));
-      setInvestmentAmount("");
-      setShowInvestModal(false);
-      Alert.alert("Success!", `You have successfully invested $${numericAmount}`);
-    } catch (error) {
-      console.error("Funding Error:", error);
-      Alert.alert("Error", "Failed to process your investment. Please try again.");
-    } finally {
-      setInvesting(false);
     }
   };
 
@@ -290,7 +225,17 @@ export default function PitchDetails() {
               <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
             </View>
 
-            <TouchableOpacity style={styles.investBtn} onPress={() => setShowInvestModal(true)}>
+            <TouchableOpacity 
+              style={styles.investBtn} 
+              onPress={() => router.push({
+                pathname: '/investor/invest-now',
+                params: {
+                  pitchId: pitch?.id,
+                  pitchTitle: pitch?.title,
+                  entrepreneurId: pitch?.entrepreneurId
+                }
+              })}
+            >
               <Text style={styles.investBtnText}>Invest in this Project</Text>
             </TouchableOpacity>
           </View>
@@ -318,51 +263,6 @@ export default function PitchDetails() {
         )}
       </ScrollView>
 
-      <Modal
-        visible={showInvestModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowInvestModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Invest in {pitch?.title}</Text>
-            <Text style={styles.modalSubtitle}>Enter the amount you want to fund</Text>
-
-            <TextInput
-              style={styles.amountInput}
-              placeholder="e.g. 500"
-              keyboardType="numeric"
-              value={investmentAmount}
-              onChangeText={setInvestmentAmount}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
-                onPress={() => {
-                  if (investing) return;
-                  setShowInvestModal(false);
-                }}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.confirmBtn, investing && styles.modalBtnDisabled]}
-                onPress={() => handleInvest(investmentAmount)}
-                disabled={investing}
-              >
-                {investing ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Confirm Investment</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
