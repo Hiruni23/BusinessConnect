@@ -37,7 +37,20 @@ service cloud.firestore {
     }
 
     function isChatParticipant(chatId) {
-      return signedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      let chat = get(/databases/$(database)/documents/chats/$(chatId)).data;
+      return signedIn() && (
+        (chat.participants is list && request.auth.uid in chat.participants) ||
+        chat.investorId == request.auth.uid ||
+        chat.entrepreneurId == request.auth.uid
+      );
+    }
+
+    function canAccessChat(data) {
+      return signedIn() && (
+        (data.participants is list && request.auth.uid in data.participants) ||
+        data.investorId == request.auth.uid ||
+        data.entrepreneurId == request.auth.uid
+      );
     }
 
     // --- COLLECTION RULES ---
@@ -87,8 +100,18 @@ service cloud.firestore {
       allow update: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid);
     }
 
+    match /pitchViews/{viewId} {
+      allow create: if signedIn() && request.resource.data.investorId == request.auth.uid;
+      allow read: if signedIn() && (
+        resource.data.investorId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid
+      );
+    }
+
     match /chats/{chatId} {
-      allow read, create, update: if signedIn() && request.auth.uid in resource.data.participants;
+      allow read: if canAccessChat(resource.data);
+      allow create: if canAccessChat(request.resource.data);
+      allow update: if canAccessChat(resource.data) && canAccessChat(request.resource.data);
       
       match /messages/{messageId} {
         allow read, create: if isChatParticipant(chatId);
@@ -96,7 +119,11 @@ service cloud.firestore {
     }
 
     match /transactions/{transactionId} {
-      allow read: if signedIn() && (resource.data.investorId == request.auth.uid || resource.data.entrepreneurId == request.auth.uid);
+      allow read: if signedIn() && (
+        resource.data.investorId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        resource.data.userId == request.auth.uid
+      );
       allow create: if isInvestor();
     }
 
