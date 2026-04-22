@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef } from 'react';
-import { Animated, Modal, PanResponder, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Animated, Modal, PanResponder, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
@@ -54,9 +54,37 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
     { label: "Notifications", icon: "notifications-outline", path: "/investor/notifications" },
   ];
 
+  const stakeholderItems = [
+    { label: "Executive Admin", icon: "shield-half-outline", path: "/stakeholder/dashboard" },
+    { label: "Vetting Queue", icon: "checkmark-circle-outline", path: "/stakeholder/milestones" },
+    { label: "Meeting Sessions", icon: "calendar-outline", path: "/stakeholder/meetings" },
+    { label: "Audit Roadmap", icon: "git-branch-outline", path: "/stakeholder/calendar" },
+    { label: "Market Intel", icon: "analytics-outline", path: "/stakeholder/analytics" },
+  ];
+
   // Select items based on Firestore role
-  const menuItems = userData?.role === "Investor" ? investorItems : entrepreneurItems;
-  const themeColor = userData?.role === "Investor" ? '#DCFCE7' : '#B4C6FF'; // Green tint for Investor
+  const getMenuItems = () => {
+    const role = userData?.role?.toLowerCase();
+    if (role === 'investor') return investorItems;
+    if (role === 'stakeholder') return stakeholderItems;
+    return entrepreneurItems;
+  };
+
+  const menuItems = getMenuItems();
+  
+  const getThemeColor = () => {
+    const role = userData?.role?.toLowerCase();
+    if (role === 'investor') return '#F0FDF4'; // Green tint
+    if (role === 'stakeholder') return '#F5F7FF'; // Indigo tint
+    return '#EFF6FF'; // Blue tint
+  };
+
+  const getAccentColor = () => {
+    const role = userData?.role?.toLowerCase();
+    if (role === 'investor') return '#22C55E';
+    if (role === 'stakeholder') return '#4F46E5';
+    return '#3B82F6';
+  };
 
   return (
     <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
@@ -69,23 +97,27 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
             <SafeAreaView style={styles.safeArea}>
               
               {/* Profile Header with Dynamic Color */}
-              <View style={[styles.profileHeader, { backgroundColor: themeColor }]}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{getInitials(userData?.fullName)}</Text>
+              <View style={[styles.profileHeader, { backgroundColor: getThemeColor() }]}>
+                <View style={[styles.avatarCircle, { borderColor: getAccentColor() + '40', borderWidth: 2 }]}>
+                  <Text style={[styles.avatarText, { color: getAccentColor() }]}>{getInitials(userData?.fullName)}</Text>
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{userData?.fullName || 'Business Partner'}</Text>
-                  <Text style={styles.userRole}>{userData?.role?.toUpperCase() || 'USER'}</Text>
+                  <Text style={[styles.userRole, { color: getAccentColor() }]}>{userData?.role?.toUpperCase() || 'USER'}</Text>
                 </View>
               </View>
 
               {/* Dynamic Menu List */}
-              <View style={styles.menuList}>
+              <ScrollView style={styles.menuList} showsVerticalScrollIndicator={false}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionLabel}>MAIN NAVIGATION</Text>
+                </View>
                 {menuItems.map((item, index) => (
                   <MenuItem 
                     key={index}
                     icon={item.icon}
                     label={item.label}
+                    accentColor={getAccentColor()}
                     onPress={() => {
                       onClose();
                       router?.push(item.path);
@@ -93,17 +125,26 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
                   />
                 ))}
                 
-                {/* Generic Items */}
+                <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+                    <Text style={styles.sectionLabel}>ACCOUNT SERVICES</Text>
+                </View>
+                <MenuItem 
+                  icon="person-outline" 
+                  label="Profile Settings" 
+                  accentColor={getAccentColor()}
+                  onPress={() => { onClose(); router?.push("/profile"); }}
+                />
                 <MenuItem 
                   icon="shield-checkmark-outline" 
                   label="Privacy Policy" 
+                  accentColor={getAccentColor()}
                   onPress={() => { onClose(); router?.push("/profile/privacy-policy"); }}
                 />
-              </View>
+              </ScrollView>
 
               <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-                <Ionicons name="log-out-outline" size={24} color="#EF4444" />
-                <Text style={styles.logoutLabel}>Logout</Text>
+                <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+                <Text style={styles.logoutLabel}>LOG OUT</Text>
               </TouchableOpacity>
             </SafeAreaView>
           </Animated.View>
@@ -113,31 +154,34 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
   );
 };
 
-const MenuItem = ({ icon, label, onPress }) => (
+const MenuItem = ({ icon, label, onPress, accentColor }) => (
   <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <View style={styles.iconCircle}>
-      <Ionicons name={icon} size={22} color="#3B82F6" />
+    <View style={[styles.iconCircle, { backgroundColor: accentColor + '10' }]}>
+      <Ionicons name={icon} size={20} color={accentColor} />
     </View>
     <Text style={styles.menuLabel}>{label}</Text>
+    <Ionicons name="chevron-forward" size={14} color="#CBD5E1" style={{ marginLeft: 'auto' }} />
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  menuContainer: { width: '80%', height: '100%', backgroundColor: '#fff', borderTopRightRadius: 30, borderBottomRightRadius: 30 },
-  safeArea: { flex: 1, padding: 20 },
-  profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 30, marginTop: 10, elevation: 3 },
-  avatarCircle: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 2 },
-  avatarText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
-  userInfo: { marginLeft: 12, flex: 1 },
-  userName: { fontSize: 16, fontWeight: 'bold', color: '#000' },
-  userRole: { fontSize: 10, color: '#333', fontWeight: '800', marginTop: 2 },
+  overlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)' },
+  menuContainer: { width: '82%', height: '100%', backgroundColor: '#fff' },
+  safeArea: { flex: 1, paddingHorizontal: 25, paddingVertical: 20 },
+  profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 24, marginBottom: 30, marginTop: 10, borderWidth: 1, borderColor: '#F1F5F9' },
+  avatarCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: 20, fontWeight: '900' },
+  userInfo: { marginLeft: 15, flex: 1 },
+  userName: { fontSize: 17, fontWeight: '900', color: '#1E293B' },
+  userRole: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 4 },
   menuList: { flex: 1 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 22 },
-  iconCircle: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  menuLabel: { fontSize: 17, fontWeight: '600', color: '#0F172A' },
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  logoutLabel: { fontSize: 16, fontWeight: 'bold', color: '#EF4444', marginLeft: 10 }
+  sectionHeader: { marginBottom: 15, paddingLeft: 5 },
+  sectionLabel: { fontSize: 10, fontWeight: '900', color: '#94A3B8', letterSpacing: 1.5 },
+  menuItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, borderRadius: 15, padding: 5 },
+  iconCircle: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  menuLabel: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#F1F5F9', marginTop: 10 },
+  logoutLabel: { fontSize: 12, fontWeight: '900', color: '#EF4444', marginLeft: 12, letterSpacing: 1 }
 });
 
 export default SideMenu;

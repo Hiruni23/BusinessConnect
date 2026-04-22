@@ -50,6 +50,7 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="mail-outline" 
             title="Email Updates" 
+            subtext="Includes Weekly Market Pulse & Milestone Alerts"
             value={isEmailEnabled} 
             onToggle={() => toggleSwitch(setIsEmailEnabled)} 
           />
@@ -100,15 +101,20 @@ export default function SettingsScreen() {
 }
 
 // Reusable component for toggle rows
-const SettingRow = ({ icon, title, value, onToggle }) => (
+const SettingRow = ({ icon, title, subtext, value, onToggle }) => (
   <View style={styles.row}>
     <View style={styles.leftContainer}>
-      <Ionicons name={icon} size={22} color="#2563EB" style={styles.icon} />
-      <Text style={styles.rowText}>{title}</Text>
+      <View style={styles.iconBg}>
+        <Ionicons name={icon} size={20} color="#4F46E5" />
+      </View>
+      <View>
+        <Text style={styles.rowText}>{title}</Text>
+        {subtext && <Text style={styles.subtext}>{subtext}</Text>}
+      </View>
     </View>
     <Switch
-      trackColor={{ false: "#767577", true: "#93c5fd" }}
-      thumbColor={value ? "#2563EB" : "#f4f3f4"}
+      trackColor={{ false: "#E2E8F0", true: "#C7D2FE" }}
+      thumbColor={value ? "#4F46E5" : "#F8FAFC"}
       onValueChange={onToggle}
       value={value}
     />
