@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { doc, getDoc, updateDoc, addDoc, setDoc, collection, serverTimestamp, increment } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, setDoc, collection, serverTimestamp, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 
 export default function PitchDetails() {
@@ -25,6 +25,7 @@ export default function PitchDetails() {
   const [pitch, setPitch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
     const recordView = async () => {
@@ -56,6 +57,11 @@ export default function PitchDetails() {
           if (snap.exists()) {
             setPitch({ id: snap.id, ...snap.data() });
           }
+          if (user) {
+            const bQuery = query(collection(db, "bookmarks"), where("pitchId", "==", id), where("investorId", "==", user.uid));
+            const bSnap = await getDocs(bQuery);
+            setIsBookmarked(!bSnap.empty);
+          }
         } catch (error) {
           console.error("Fetch Error:", error);
         } finally {
@@ -65,6 +71,50 @@ export default function PitchDetails() {
       fetchPitch();
     }
   }, [id]);
+
+  const handlePDFOpen = async () => {
+    if (!pitch?.pitchDeckUrl) return;
+    try {
+      await addDoc(collection(db, "pitchViews"), {
+        pitchId: id,
+        investorId: user?.uid || "anonymous",
+        investorName: user?.displayName || "Interested Investor",
+        viewedAt: serverTimestamp(),
+        type: "pdf_view",
+      });
+      Linking.openURL(pitch.pitchDeckUrl);
+    } catch (e) {
+      console.error(e);
+      Linking.openURL(pitch.pitchDeckUrl);
+    }
+  };
+
+  const toggleBookmark = async () => {
+    if (!user || !id) {
+       Alert.alert("Error", "You must be logged in to bookmark.");
+       return;
+    }
+    try {
+      if (isBookmarked) {
+        setIsBookmarked(false);
+        const bQuery = query(collection(db, "bookmarks"), where("pitchId", "==", id), where("investorId", "==", user.uid));
+        const bSnap = await getDocs(bQuery);
+        bSnap.forEach(async (docSnap) => await deleteDoc(doc(db, "bookmarks", docSnap.id)));
+      } else {
+        setIsBookmarked(true);
+        await addDoc(collection(db, "bookmarks"), { pitchId: id, investorId: user.uid, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "pitchViews"), {
+          pitchId: id,
+          investorId: user.uid,
+          investorName: user.displayName || "Interested Investor",
+          viewedAt: serverTimestamp(),
+          type: "bookmark",
+        });
+      }
+    } catch (e) {
+      console.error("Bookmark error", e);
+    }
+  };
 
   /* ================= CHAT LOGIC ================= */
   const startChat = async () => {
@@ -161,7 +211,9 @@ export default function PitchDetails() {
           <Ionicons name="chevron-back" size={24} color="#1E293B" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Review Pitch</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={toggleBookmark} style={styles.backCircle}>
+          <Ionicons name={isBookmarked ? "bookmark" : "bookmark-outline"} size={22} color="#4F46E5" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
@@ -190,12 +242,23 @@ export default function PitchDetails() {
 
           <View style={styles.divider} />
 
+          {/* 🤖 AI SUMMARY BANNER */}
+          {pitch?.aiSummary && (
+            <View style={styles.aiSummaryBanner}>
+               <View style={styles.aiBannerHeader}>
+                 <Ionicons name="sparkles" size={16} color="#4F46E5" />
+                 <Text style={styles.aiBannerTitle}>AI TECH SUMMARY (TL;DR)</Text>
+               </View>
+               <Text style={styles.aiSummaryText}>{pitch.aiSummary}</Text>
+            </View>
+          )}
+
           <Text style={styles.label}>BUSINESS OVERVIEW</Text>
           <Text style={styles.description}>{pitch?.description}</Text>
 
           <TouchableOpacity
             style={[styles.pdfButton, !pitch?.pitchDeckUrl && styles.pdfDisabled]}
-            onPress={() => pitch?.pitchDeckUrl && Linking.openURL(pitch.pitchDeckUrl)}
+            onPress={handlePDFOpen}
           >
             <Ionicons
               name="document-attach-outline"
@@ -370,6 +433,40 @@ const styles = StyleSheet.create({
   acceptBtn: { backgroundColor: "#10B981" },
   rejectBtn: { backgroundColor: "#EF4444" },
   btnText: { color: "#FFF", fontSize: 18, fontWeight: "800" },
+
+  // 🤖 AI SUMMARY STYLES
+  aiSummaryBanner: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 70, 229, 0.2)',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  aiBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiBannerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#4F46E5',
+    marginLeft: 6,
+    letterSpacing: 1,
+  },
+  aiSummaryText: {
+    fontSize: 15,
+    color: '#1E293B',
+    lineHeight: 22,
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.35)",
