@@ -104,13 +104,23 @@ export default function MyPitches() {
         </View>
 
         <View style={styles.cardFooter}>
+          <TouchableOpacity 
+            style={styles.milestoneBtn} 
+            onPress={() => router.push({ pathname: "/entrepreneur/milestones/[id]", params: { id: item.id, title: item.title } })}
+          >
+             <Ionicons name="flag-outline" size={16} color="#4F46E5" />
+             <Text style={styles.milestoneBtnText}>Milestones</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }} />
+
           <View style={styles.footerStat}>
             <Ionicons name="people-outline" size={16} color="#64748B" />
-            <Text style={styles.footerStatText}>{item.interested || 0} Investors</Text>
+            <Text style={styles.footerStatText}>{item.interested || 0}</Text>
           </View>
           <View style={styles.footerStat}>
             <Ionicons name="eye-outline" size={16} color="#64748B" />
-            <Text style={styles.footerStatText}>{item.views || 0} Views</Text>
+            <Text style={styles.footerStatText}>{item.views || 0}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -253,9 +263,19 @@ const styles = StyleSheet.create({
   progressBarFill: { height: 8, backgroundColor: "#2563EB", borderRadius: 4 },
 
   // Footer Styles
-  cardFooter: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 15, gap: 20 },
-  footerStat: { flexDirection: "row", alignItems: "center", gap: 6 },
-  footerStatText: { fontSize: 13, color: "#64748B", fontWeight: "600" },
+  cardFooter: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#F1F5F9", paddingTop: 15, gap: 15, alignItems: 'center' },
+  footerStat: { flexDirection: "row", alignItems: "center", gap: 4 },
+  footerStatText: { fontSize: 12, color: "#94A3B8", fontWeight: "600" },
+  milestoneBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 6, 
+    backgroundColor: '#EEF2FF', 
+    paddingHorizontal: 12, 
+    paddingVertical: 8, 
+    borderRadius: 12 
+  },
+  milestoneBtnText: { color: '#4F46E5', fontSize: 13, fontWeight: '700' },
 
   // Empty State
   emptyContainer: { alignItems: "center", marginTop: 60 },

@@ -76,3 +76,39 @@ export const generatePitchSummary = async (description) => {
     return "No AI summary available.";
   }
 };
+
+/**
+ * 🤖 Performs a governance audit on a project milestone.
+ * Provides risk scoring and audit questions for stakeholders.
+ */
+export const analyzeMilestoneRisk = async (milestoneTitle, description, amount) => {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const prompt = `
+      Act as a high-level Governance Auditor and Risk Analyst for a venture marketplace.
+      Audit the following project milestone:
+      Milestone Title: ${milestoneTitle}
+      Requested Release Amount: $${amount}
+      Description of Work: ${description}
+
+      Provide your audit output as a plain JSON object with the following fields:
+      "riskScore": (a number from 1-10 where 1 is safe and 10 is high risk),
+      "redFlags": (a list of 1-3 specific concerns found in description or cost),
+      "auditQuestions": (a list of 2 specific follow-up questions the reviewer should ask the founder),
+      "analysis": (a 1-sentence summary of the overall risk level)
+
+      Be critical but fair. If the cost seems high for the description, flag it. 
+      Do not include any markdown formatting or prefix the response.
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().trim();
+    const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Milestone AI Audit Error:", error);
+    throw new Error("AI Governance service is currently under high load. Please audit manually.");
+  }
+};
