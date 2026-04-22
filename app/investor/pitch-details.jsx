@@ -84,6 +84,8 @@ export default function PitchDetails() {
         doc(db, "chats", chatId),
         {
           participants: [auth.currentUser.uid, pitch.entrepreneurId],
+          investorId: auth.currentUser.uid,
+          entrepreneurId: pitch.entrepreneurId,
           pitchId: pitch.id,
           pitchTitle: pitch.title,
           lastMessage: "Conversation started...",

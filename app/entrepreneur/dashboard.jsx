@@ -89,7 +89,7 @@ export default function EntrepreneurDashboard() {
       });
     });
 
-    const qChats = query(collection(db, "chats"), where("participants", "array-contains", user.uid), orderBy("updatedAt", "desc"));
+    const qChats = query(collection(db, "chats"), where("entrepreneurId", "==", user.uid), orderBy("updatedAt", "desc"));
     const unsubChats = onSnapshot(qChats, (snapshot) => {
       setRecentChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isUnread: doc.data().unreadBy?.includes(user.uid) })));
     });

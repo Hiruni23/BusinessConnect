@@ -30,9 +30,6 @@ export default function Index() {
 
         const role = userDoc.data()?.role;
         const normalizedRole = String(role || "").toLowerCase();
-        const investorType = userDoc.data()?.investorType || userDoc.data()?.targetInvestorCategory;
-        const category = userDoc.data()?.businessCategory;
-
         // 🔹 If role not selected yet
         if (!role) {
           router.replace("/auth/role-selection");
@@ -42,14 +39,6 @@ export default function Index() {
         // 🔹 Navigate based on role
         switch (normalizedRole) {
           case "entrepreneur":
-            if (!investorType) {
-              router.replace("/auth/investor-selection");
-              return;
-            }
-            if (!category) {
-              router.replace("/auth/category-selection");
-              return;
-            }
             router.replace("/entrepreneur/dashboard");
             break;
 

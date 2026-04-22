@@ -1,17 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useStripe } from '@stripe/stripe-react-native';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebaseConfig';
 
+let useStripe;
+if (Platform.OS !== 'web') {
+  const stripeModule = require('@stripe/stripe-react-native');
+  useStripe = stripeModule.useStripe;
+}
+
 export default function PaymentGateway({ amount, onPaymentSuccess, onCancel }) {
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const stripeHook = Platform.OS !== 'web' && useStripe ? useStripe() : {};
+  const { initPaymentSheet, presentPaymentSheet } = stripeHook;
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    initializePaymentSheet();
+    if (Platform.OS !== 'web') {
+      initializePaymentSheet();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const initializePaymentSheet = async () => {
@@ -55,6 +65,20 @@ export default function PaymentGateway({ amount, onPaymentSuccess, onCancel }) {
       onPaymentSuccess();
     }
   };
+
+  if (Platform.OS === 'web') {
+    return (
+      <View style={styles.gatewayContainer}>
+        <Text style={styles.gatewayTitle}>Payment Not Available</Text>
+        <Text style={styles.infoText}>
+          Payment processing is only available on mobile devices. Please use the app on iOS or Android.
+        </Text>
+        <TouchableOpacity onPress={onCancel} style={{ marginTop: 25 }}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.gatewayContainer}>

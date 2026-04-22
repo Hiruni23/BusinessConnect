@@ -86,6 +86,14 @@ export default function CreatePitch() {
     colors: ["#4F46E5", "#06B6D4"],
   };
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/entrepreneur/dashboard");
+  };
+
   /* ================= AI LOGIC ================= */
   const handleAiGenerate = async () => {
     if (!aiKeywords.trim()) {
@@ -209,7 +217,7 @@ export default function CreatePitch() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 10 }}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backCircle}>
+          <TouchableOpacity onPress={handleBack} style={styles.backCircle}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.categoryTitle}>{category}</Text>

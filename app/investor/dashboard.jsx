@@ -98,7 +98,7 @@ export default function InvestorDashboard() {
   /* ================= REAL-TIME CHAT LISTENER ================= */
   useEffect(() => {
     if (!user) return;
-    const qChats = query(collection(db, "chats"), where("participants", "array-contains", user.uid), orderBy("updatedAt", "desc"));
+    const qChats = query(collection(db, "chats"), where("investorId", "==", user.uid), orderBy("updatedAt", "desc"));
     const unsubscribe = onSnapshot(qChats, (snapshot) => {
       const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRecentChats(chatList);

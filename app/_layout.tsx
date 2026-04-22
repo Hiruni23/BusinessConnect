@@ -194,9 +194,6 @@ export default function RootLayout() {
 
         const role = userData?.role; // "Entrepreneur" | "entrepreneur" | etc
         const normalizedRole = String(role || "").toLowerCase();
-        const investorType = userData?.investorType || userData?.targetInvestorCategory;
-        const category = userData?.businessCategory;
-
         /* 1️⃣ No role → force role selection */
         if (!role) {
           if (segments.join("/") !== "auth/role-selection") {
@@ -209,42 +206,14 @@ export default function RootLayout() {
            🧑‍💼 ENTREPRENEUR FLOW
         =============================== */
         if (normalizedRole === "entrepreneur") {
-          // Allow entrepreneur segment
+          // Allow entrepreneur and chat segments
           if (inEntrepreneur || inChat) {
             setInitialRouteLoaded(true);
             return;
           }
 
-          // Investor selection allowed
-          if (!investorType && segments.join("/") === "auth/investor-selection") {
-            setInitialRouteLoaded(true);
-            return;
-          }
-
-          // Category selection allowed
-          if (
-            investorType &&
-            !category &&
-            segments.join("/") === "auth/category-selection"
-          ) {
-            setInitialRouteLoaded(true);
-            return;
-          }
-
-          // Prevent skipping steps
-          if (!investorType) {
-            router.replace("/auth/investor-selection");
-            setInitialRouteLoaded(true);
-            return;
-          }
-
-          if (investorType && !category) {
-            router.replace("/auth/category-selection");
-            setInitialRouteLoaded(true);
-            return;
-          }
-
-          // Setup complete → stay in entrepreneur area
+          // Entrepreneurs should land directly on their dashboard after role selection.
+          router.replace("/entrepreneur/dashboard");
           setInitialRouteLoaded(true);
           return;
         }

@@ -39,7 +39,7 @@ export default function RoleSelection() {
       // ✅ Navigate based on role
       switch (selectedRole) {
         case "entrepreneur":
-          router.replace("/auth/investor-selection");
+          router.replace("/entrepreneur/dashboard");
           break;
 
         case "investor":

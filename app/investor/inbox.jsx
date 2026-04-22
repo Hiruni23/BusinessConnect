@@ -15,7 +15,7 @@ export default function InvestorInbox() {
 
     const qChats = query(
       collection(db, "chats"),
-      where("participants", "array-contains", user.uid),
+      where("investorId", "==", user.uid),
       orderBy("updatedAt", "desc")
     );
 
