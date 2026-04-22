@@ -1,8 +1,10 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
+const templates = require("./emailTemplates");
 const stripe = require("stripe")("sk_test_51TOKSuCDZMl8sA2g91wKmQS6m18tHCQKcb2NV3Iy7kI9maTwb8NzJsDFiy8uROS4aGoV76USDPG1IuSPJ2iVRv6b00keVElovj");
-
 
 admin.initializeApp();
 
@@ -16,7 +18,6 @@ exports.notifyInvestorsOnPitch = onDocumentCreated(
     const pitch = event.data.data();
     const db = admin.firestore();
 
-    // Get all investors
     const investorsSnap = await db
       .collection("users")
       .where("role", "==", "investor")
@@ -39,7 +40,6 @@ exports.notifyInvestorsOnPitch = onDocumentCreated(
     });
 
     await batch.commit();
-
     console.log("Investors notified.");
   }
 );
@@ -54,13 +54,12 @@ exports.notifyEntrepreneurOnUpdate = onDocumentUpdated(
     const before = event.data.before.data();
     const after = event.data.after.data();
 
-    // Only trigger if status changed
     if (before.status === after.status) return;
 
     const db = admin.firestore();
 
     await db.collection("notifications").add({
-      userId: after.userId, // Entrepreneur ID
+      userId: after.entrepreneurId || after.userId,
       pitchId: event.params.pitchId,
       message: `Your pitch "${after.title}" was ${after.status}`,
       isRead: false,
@@ -93,9 +92,7 @@ exports.createPaymentIntent = onCall(async (request) => {
       metadata: { uid },
     });
 
-    return {
-      clientSecret: paymentIntent.client_secret,
-    };
+    return { clientSecret: paymentIntent.client_secret };
   } catch (error) {
     console.error("Stripe Error:", error);
     throw new HttpsError("internal", "Unable to create payment intent.");
@@ -107,30 +104,21 @@ exports.createPaymentIntent = onCall(async (request) => {
 ===================================================== */
 exports.createConnectAccount = onCall(async (request) => {
   const uid = request.auth?.uid;
-
-  if (!uid) {
-    throw new HttpsError("unauthenticated", "You must be logged in.");
-  }
+  if (!uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
     const db = admin.firestore();
     const userDocRef = db.collection("users").doc(uid);
     const userSnap = await userDocRef.get();
 
-    if (!userSnap.exists) {
-      throw new HttpsError("not-found", "User not found");
-    }
-
+    if (!userSnap.exists) throw new HttpsError("not-found", "User not found");
     const userData = userSnap.data();
 
-    if (userData.stripeAccountId) {
-      return { accountId: userData.stripeAccountId };
-    }
+    if (userData.stripeAccountId) return { accountId: userData.stripeAccountId };
 
-    // Create a new Express account
     const account = await stripe.accounts.create({
       type: "express",
-      country: "US", // Or dynamic based on user setup
+      country: "US",
       email: request.auth.token.email || userData.email,
       capabilities: {
         card_payments: { requested: true },
@@ -138,13 +126,9 @@ exports.createConnectAccount = onCall(async (request) => {
       },
     });
 
-    await userDocRef.update({
-      stripeAccountId: account.id
-    });
-
+    await userDocRef.update({ stripeAccountId: account.id });
     return { accountId: account.id };
   } catch (error) {
-    console.error("Error creating connect account: ", error);
     throw new HttpsError("internal", error.message);
   }
 });
@@ -153,16 +137,8 @@ exports.createConnectAccount = onCall(async (request) => {
    5️⃣ Get Stripe Connect Onboarding Link
 ===================================================== */
 exports.createConnectAccountLink = onCall(async (request) => {
-  const uid = request.auth?.uid;
   const { accountId } = request.data;
-
-  if (!uid) {
-    throw new HttpsError("unauthenticated", "You must be logged in.");
-  }
-
-  if (!accountId) {
-    throw new HttpsError("invalid-argument", "Valid account ID must be provided.");
-  }
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
     const accountLink = await stripe.accountLinks.create({
@@ -171,10 +147,8 @@ exports.createConnectAccountLink = onCall(async (request) => {
       return_url: 'https://us-central1-businessconnect-b6310.cloudfunctions.net/stripeRedirect?status=success',
       type: 'account_onboarding',
     });
-
     return { url: accountLink.url };
   } catch (error) {
-    console.error("Error creating account link: ", error);
     throw new HttpsError("internal", error.message);
   }
 });
@@ -184,18 +158,12 @@ exports.createConnectAccountLink = onCall(async (request) => {
 ===================================================== */
 exports.getConnectBalance = onCall(async (request) => {
   const { accountId } = request.data;
-
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "You must be logged in.");
-  }
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
-    const balance = await stripe.balance.retrieve({}, {
-      stripeAccount: accountId,
-    });
+    const balance = await stripe.balance.retrieve({}, { stripeAccount: accountId });
     return { balance };
   } catch (error) {
-    console.error("Error retrieving balance: ", error);
     throw new HttpsError("internal", error.message);
   }
 });
@@ -204,22 +172,13 @@ exports.getConnectBalance = onCall(async (request) => {
    7️⃣ Process Payout
 ===================================================== */
 exports.processConnectPayout = onCall(async (request) => {
-  const { accountId, amount } = request.data; // amount in cents
-
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "You must be logged in.");
-  }
+  const { accountId, amount } = request.data;
+  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
-    const payout = await stripe.payouts.create({
-      amount: amount,
-      currency: "usd",
-    }, {
-      stripeAccount: accountId,
-    });
+    const payout = await stripe.payouts.create({ amount, currency: "usd" }, { stripeAccount: accountId });
     return { payout };
   } catch (error) {
-    console.error("Error processing payout: ", error);
     throw new HttpsError("internal", error.message);
   }
 });
@@ -231,3 +190,123 @@ exports.stripeRedirect = onRequest((req, res) => {
   const status = req.query.status || 'refresh';
   res.redirect(`businessconnect://entrepreneur/payouts?status=${status}`);
 });
+
+/* =====================================================
+   9️⃣ Automated Email Governance System
+===================================================== */
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER || "placeholder@gmail.com",
+    pass: process.env.EMAIL_PASS || "placeholder_pass",
+  },
+});
+
+/**
+ * 📊 WEEKLY MARKET PULSE
+ * Runs every Monday at 9:00 AM
+ */
+exports.weeklyMarketPulse = onSchedule("every monday 09:00", async (event) => {
+  const db = admin.firestore();
+  
+  const pitchesSnap = await db.collection("pitches").get();
+  const milestonesSnap = await db.collection("milestones").where("status", "==", "completed").get();
+  
+  const stats = {
+    activeProjects: pitchesSnap.size,
+    pendingMilestones: milestonesSnap.size,
+    totalCapital: pitchesSnap.docs.reduce((acc, doc) => acc + (doc.data().raisedAmount || 0), 0),
+    newPitches: pitchesSnap.docs.filter(d => {
+        const data = d.data();
+        const created = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return created > weekAgo;
+    }).length
+  };
+
+  const stakeholdersSnap = await db.collection("users").where("role", "==", "Stakeholder").get();
+  
+  const mailPromises = stakeholdersSnap.docs.map(doc => {
+    const user = doc.data();
+    if (!user.email) return Promise.resolve();
+
+    return transporter.sendMail({
+      from: '"BusinessConnect Oversight" <no-reply@businessconnect.app>',
+      to: user.email,
+      subject: "Your Weekly Market Pulse Report",
+      html: templates.weeklyPulse(stats),
+    });
+  });
+
+  await Promise.allSettled(mailPromises);
+  console.log("Weekly Pulse execution complete.");
+});
+
+/**
+ * 🔔 INSTANT MILESTONE ALERT
+ * Triggered when a milestone is completed by an entrepreneur
+ */
+exports.onMilestoneCompletedEmail = onDocumentCreated(
+  "milestones/{id}",
+  async (event) => {
+    const milestone = event.data.data();
+    if (milestone.status !== "completed") return;
+
+    const db = admin.firestore();
+    const stakeholdersSnap = await db.collection("users").where("role", "==", "Stakeholder").get();
+
+    const mailPromises = stakeholdersSnap.docs.map(doc => {
+      const user = doc.data();
+      return transporter.sendMail({
+        from: '"Governance Alert" <no-reply@businessconnect.app>',
+        to: user.email,
+        subject: `Review Required: ${milestone.pitchTitle}`,
+        html: templates.milestoneAlert({
+            type: 'completed',
+            pitchTitle: milestone.pitchTitle,
+            milestoneTitle: milestone.title,
+            status: 'Pending Review',
+            description: milestone.description
+        }),
+      });
+    });
+
+    await Promise.allSettled(mailPromises);
+  }
+);
+
+/**
+ * 📝 GOVERNANCE DECISION EMAIL
+ * Triggered when a stakeholder approves/rejects a milestone
+ */
+exports.onMilestoneStatusChangeEmail = onDocumentUpdated(
+  "milestones/{id}",
+  async (event) => {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+
+    if (before.status === after.status) return;
+    if (after.status === "completed") return; 
+
+    const db = admin.firestore();
+    const entrepreneurDoc = await db.collection("users").doc(after.entrepreneurId).get();
+    const entrepreneur = entrepreneurDoc.data();
+
+    if (!entrepreneur?.email) return;
+
+    await transporter.sendMail({
+      from: '"Governance Board" <no-reply@businessconnect.app>',
+      to: entrepreneur.email,
+      subject: `Milestone ${after.status.toUpperCase()}: ${after.pitchTitle}`,
+      html: templates.milestoneAlert({
+          type: 'decision',
+          pitchTitle: after.pitchTitle,
+          milestoneTitle: after.title,
+          status: after.status,
+          description: after.feedback || "Your milestone has been reviewed by the stakeholder board."
+      }),
+    });
+  }
+);

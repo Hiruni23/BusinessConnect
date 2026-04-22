@@ -3,7 +3,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import Constants from "expo-constants";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, updateDoc, setDoc } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, type AppStateStatus, Platform, View } from "react-native";
 import { auth, db } from "../firebaseConfig";
@@ -37,10 +37,10 @@ export default function RootLayout() {
   useEffect(() => {
     const setPresence = async (uid: string, status: "online" | "offline") => {
       try {
-        await updateDoc(doc(db, "users", uid), {
+        await setDoc(doc(db, "users", uid), {
           status,
           lastSeen: serverTimestamp(),
-        });
+        }, { merge: true });
       } catch (err) {
         console.error("Presence update failed:", err);
       }
