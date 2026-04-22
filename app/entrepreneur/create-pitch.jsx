@@ -21,7 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 // 🤖 IMPORT THE AI SERVICE
-import { generateAIPitch } from "../../services/aiService";
+import { generateAIPitch, analyzePitchContent, generatePitchSummary } from "../../services/aiService";
 
 const { width } = Dimensions.get("window");
 
@@ -41,6 +41,7 @@ export default function CreatePitch() {
   // 🤖 AI State
   const [aiKeywords, setAiKeywords] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
 
   // Animation Refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -105,12 +106,45 @@ export default function CreatePitch() {
     }
   };
 
+  const handleAiGrade = async () => {
+    if (!description || description.length < 50) {
+      Alert.alert("AI Reviewer", "Please write a bit more in the description so the AI can give you a proper grade!");
+      return;
+    }
+
+    setIsAiLoading(true);
+    try {
+      const analysis = await analyzePitchContent(title, description, goal, category);
+      
+      const feedbackStr = analysis.feedback.map(item => `• ${item}`).join("\n");
+      
+      Alert.alert(
+        "AI Pitch Score: " + analysis.score + "/100 ✨",
+        `${analysis.verdict}\n\nSuggestions for Improvement:\n${feedbackStr}`,
+        [{ text: "Got it, thanks!" }]
+      );
+    } catch (error) {
+      Alert.alert("AI Error", "Could not analyze the pitch. Is the content too short?");
+      console.error(error);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const pickFile = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: true,
-    });
-    if (!result.canceled && result.assets?.length > 0) {
-      setFile(result.assets[0]);
+    if (isPicking) return;
+    setIsPicking(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.length > 0) {
+        setFile(result.assets[0]);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPicking(false);
     }
   };
 
@@ -139,9 +173,15 @@ export default function CreatePitch() {
         return;
       }
 
+      let aiSummary = "No AI summary generated.";
+      try {
+        aiSummary = await generatePitchSummary(description);
+      } catch (e) { console.error("Summary generation failed", e); }
+
       await addDoc(collection(db, "pitches"), {
         title,
         description,
+        aiSummary, // 🤖 Save the TL;DR for investors!
         category,
         fundingGoal: Number(goal.replace(/,/g, "")),
         raisedAmount: 0,
@@ -255,7 +295,22 @@ export default function CreatePitch() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleSubmit} disabled={loading}>
+            <TouchableOpacity 
+              style={[styles.aiButton, { backgroundColor: 'rgba(79, 70, 229, 0.1)', borderColor: '#4F46E5', borderWidth: 1, marginBottom: 10 }]} 
+              onPress={handleAiGrade}
+              disabled={isAiLoading || loading}
+            >
+              {isAiLoading ? (
+                <ActivityIndicator color="#4F46E5" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="analytics" size={16} color="#4F46E5" />
+                  <Text style={styles.aiButtonText}>Grade Pitch with AI</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleSubmit} disabled={loading || isAiLoading}>
               <LinearGradient colors={config.colors} style={styles.submitBtn}>
                 {loading ? (
                   <ActivityIndicator color="#fff" />

@@ -9,9 +9,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Dimensions
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from "firebase/auth";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   collection,
   doc, getDoc,
@@ -27,11 +30,12 @@ import { db, auth } from "../../firebaseConfig";
 import AIChatModal from "../components/AIChatModal";
 import SideMenu from "../components/SideMenu";
 
+const { width } = Dimensions.get("window");
+
 export default function EntrepreneurDashboard() {
   const router = useRouter();
   const user = auth.currentUser;
-  const hasCheckedLatestNotification = useRef(false);
-
+  
   const [pitches, setPitches] = useState([]);
   const [recentChats, setRecentChats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +46,6 @@ export default function EntrepreneurDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    hasCheckedLatestNotification.current = false;
 
     const fetchUserData = async () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -52,368 +55,311 @@ export default function EntrepreneurDashboard() {
     };
     fetchUserData();
 
-    // 1. Listen for Pitches
-    const qPitches = query(
-      collection(db, "pitches"),
-      where("entrepreneurId", "==", user.uid)
-    );
+    const qPitches = query(collection(db, "pitches"), where("entrepreneurId", "==", user.uid));
     const unsubPitches = onSnapshot(qPitches, async (snapshot) => {
       try {
-        const pitchList = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }));
-
+        const pitchList = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }));
         const pitchesWithViewCounts = await Promise.all(
           pitchList.map(async (pitch) => {
-            const viewCountQuery = query(
-              collection(db, "pitchViews"),
-              where("pitchId", "==", pitch.id)
-            );
-            const viewCountSnapshot = await getCountFromServer(viewCountQuery);
-
-            return {
-              ...pitch,
-              views: viewCountSnapshot.data().count,
-            };
+            const viewQuery = query(collection(db, "pitchViews"), where("pitchId", "==", pitch.id));
+            const viewCountSnap = await getCountFromServer(viewQuery);
+            return { ...pitch, views: viewCountSnap.data().count };
           })
         );
-
         setPitches(pitchesWithViewCounts);
-      } catch (error) {
-        console.error("Pitch View Count Error:", error);
-      } finally {
-        setLoading(false);
-      }
+      } catch (error) { console.error(error); } finally { setLoading(false); }
     });
 
-    // 2. Listen for Unread Notifications
-    const qNotifs = query(
-      collection(db, "notifications"),
-      where("userId", "==", user.uid),
-      where("isRead", "==", false)
-    );
-    const unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
-      setHasUnread(!snapshot.empty);
-    });
+    const qNotifs = query(collection(db, "notifications"), where("userId", "==", user.uid), where("isRead", "==", false));
+    const unsubNotifs = onSnapshot(qNotifs, (snapshot) => setHasUnread(!snapshot.empty));
 
-    // 3. Listen for newest notification to trigger celebration on fresh investment alerts
-    const qLatestNotif = query(
-      collection(db, "notifications"),
-      where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(1)
-    );
+    const mountedAt = new Date();
+    const qLatestNotif = query(collection(db, "notifications"), where("userId", "==", user.uid), where("createdAt", ">", mountedAt), orderBy("createdAt", "desc"), limit(1));
     const unsubLatestNotif = onSnapshot(qLatestNotif, (snapshot) => {
-      // Skip the first snapshot so existing notifications do not trigger navigation on load.
-      if (!hasCheckedLatestNotification.current) {
-        hasCheckedLatestNotification.current = true;
-        return;
-      }
-
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const notif = change.doc.data();
           if (notif.title === "New Investment! 💰") {
             router.push({
               pathname: "/entrepreneur/investment-success-celebration",
-              params: {
-                amount: notif.amount || 0,
-                investor: notif.investorEmail || "An Investor",
-              },
+              params: { amount: notif.amount || 0, investor: notif.investorEmail || "An Investor" },
             });
           }
         }
       });
     });
 
-    // 4. LISTEN FOR RECENT CHATS
-    const qChats = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", user.uid),
-      orderBy("updatedAt", "desc")
-    );
+    const qChats = query(collection(db, "chats"), where("participants", "array-contains", user.uid), orderBy("updatedAt", "desc"));
     const unsubChats = onSnapshot(qChats, (snapshot) => {
-      const chatList = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          isUnread: data.unreadBy?.includes(user.uid) 
-        };
-      });
-      setRecentChats(chatList);
+      setRecentChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isUnread: doc.data().unreadBy?.includes(user.uid) })));
     });
 
-    return () => {
-      unsubPitches();
-      unsubNotifs();
-      unsubLatestNotif();
-      unsubChats();
-    };
+    return () => { unsubPitches(); unsubNotifs(); unsubLatestNotif(); unsubChats(); };
   }, [user]);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.replace("/auth/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+    try { await signOut(auth); router.replace("/auth/login"); } catch (e) { console.error(e); }
   };
 
-  const totalFunding = pitches.reduce((sum, pitch) => sum + (pitch.raisedAmount || 0), 0);
-  const totalInterested = pitches.reduce((sum, pitch) => sum + (pitch.interested || 0), 0);
+  const totalFunding = pitches.reduce((sum, p) => sum + Number(p.raisedAmount || 0), 0);
+  const totalInterested = pitches.reduce((sum, p) => sum + Number(p.interested || 0), 0);
   const username = user?.displayName || (user?.email ? user.email.split("@")[0] : "User");
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      <LinearGradient colors={['#F8FAFC', '#F1F5F9', '#E2E8F0']} style={StyleSheet.absoluteFill} />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}>
-          <Ionicons name="menu-outline" size={26} color="#111827" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Business Connect</Text>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => router.push("/entrepreneur/notifications")}>
-            <View>
-              <Ionicons name="notifications-outline" size={22} color="#111827" />
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* MODERNISED HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.headerBtn}>
+            <Ionicons name="menu-outline" size={26} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>BusinessConnect</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => router.push("/entrepreneur/notifications")} style={styles.headerBtn}>
+              <Ionicons name="notifications-outline" size={22} color="#1E293B" />
               {hasUnread && <View style={styles.badgeDot} />}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/profile")} style={styles.headerBtn}>
+              <Ionicons name="person-circle-outline" size={26} color="#1E293B" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          
+          {/* WELCOME SECTION */}
+          <View style={styles.welcomeContainer}>
+            <View>
+              <Text style={styles.welcomeLabel}>Good morning,</Text>
+              <Text style={styles.welcomeTitle}>{username} ✨</Text>
             </View>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/profile")}>
-            <Ionicons name="person-circle-outline" size={26} color="#111827" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.welcomeRow}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.welcomeName}>{username}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleText}>ENTREPRENEUR</Text>
+            </View>
           </View>
-          <View style={styles.roleBadge}>
-            <Ionicons name="shield-checkmark" size={14} color="#2563EB" />
-            <Text style={styles.roleText}>ENTREPRENEUR</Text>
-          </View>
-        </View>
 
-        {/* QUICK STATS SECTION */}
-        <View style={styles.statsRow}>
-          <StatsCard title="My Pitches" value={pitches.length} icon="briefcase-outline" onPress={() => router.push("/entrepreneur/my-pitches")} />
-          <StatsCard title="Investors" value={totalInterested} icon="people-outline" />
-          <StatsCard title="Funding" value={`$${totalFunding}`} icon="cash-outline" onPress={() => router.push("/entrepreneur/investment-success-celebration")} />
-          <StatsCard title="Active" value={pitches.filter(p => p.status === "Open").length} icon="rocket-outline" onPress={() => router.push("/entrepreneur/active")} />
-        </View>
-
-        <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => router.push("/entrepreneur/funding-insights")}
+          {/* MAJOR HERO FUNDING CARD */}
+          <TouchableOpacity 
+            activeOpacity={0.9} 
+            onPress={() => router.push({ pathname: "/entrepreneur/investment-success-celebration", params: { amount: totalFunding, investor: "Total Portfolio" } })}
           >
-            <Ionicons name="people" size={24} color="#4F46E5" />
-            <Text style={styles.statLabel}>Investor List</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 📊 NEW: ANALYTICS BUTTON SECTION */}
-        <TouchableOpacity 
-          style={styles.analyticsBtn} 
-          onPress={() => router.push('/entrepreneur/analytics')}
-        >
-          <View style={styles.btnContent}>
-            <View style={styles.chartIconCircle}>
-               <Ionicons name="bar-chart" size={20} color="#fff" />
+            <View style={styles.heroCard}>
+              <LinearGradient colors={['#4F46E5', '#3730A3']} style={StyleSheet.absoluteFill} />
+              <View style={styles.heroHeader}>
+                <Text style={styles.heroLabelLight}>Total Capital Secured</Text>
+                <View style={styles.heroIconCircle}><Ionicons name="trending-up" size={20} color="#10B981" /></View>
+              </View>
+              <Text style={styles.heroValueLight}>${totalFunding.toLocaleString()}</Text>
+              <View style={styles.heroFooter}>
+                <Text style={styles.heroSubTextLight}>Over {pitches.length} Active Pitches</Text>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
+              </View>
             </View>
-            <View style={{marginLeft: 12}}>
-                <Text style={styles.btnText}>View Pitch Analytics</Text>
-                <Text style={styles.btnSubText}>Check your weekly investor trends</Text>
+          </TouchableOpacity>
+
+          {/* SECONDARY STATS GRID */}
+          <View style={styles.statGrid}>
+            <View style={styles.statBoxWrapper}>
+              <View style={styles.statBox}>
+                <Ionicons name="people-outline" size={20} color="#4F46E5" />
+                <Text style={styles.statNumber}>{totalInterested}</Text>
+                <Text style={styles.statTitle}>Investors</Text>
+              </View>
+            </View>
+            <View style={styles.statBoxWrapper}>
+              <View style={styles.statBox}>
+                <Ionicons name="rocket-outline" size={20} color="#EC4899" />
+                <Text style={styles.statNumber}>{pitches.filter(p => p.status === "Open").length}</Text>
+                <Text style={styles.statTitle}>Live Pitches</Text>
+              </View>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#fff" style={{opacity: 0.7}} />
-        </TouchableOpacity>
 
-        {/* RECENT MESSAGES SECTION */}
-        <Text style={styles.sectionTitle}>Recent Messages</Text>
-        {recentChats.length === 0 ? (
-          <Text style={styles.emptyText}>No messages yet.</Text>
-        ) : (
-          recentChats.slice(0, 3).map((chat) => (
-            <TouchableOpacity 
-              key={chat.id} 
-              style={styles.chatItem} 
-              onPress={() => router.push(`/chat/${chat.id}`)}
-            >
-              <View style={styles.chatIconBg}>
-                <Ionicons name="chatbubble-ellipses" size={20} color="#4F46E5" />
-                {chat.isUnread && <View style={styles.unreadDot} />} 
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.chatPitchTitle, chat.isUnread && { fontWeight: '900' }]}>
-                  {chat.pitchTitle || "Pitch Inquiry"}
-                </Text>
-                <Text style={styles.chatLastMsg} numberOfLines={1}>{chat.lastMessage}</Text>
+          {/* QUICK LINKS */}
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/funding-insights")}>
+              <View style={styles.actionCard}>
+                <Ionicons name="list" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Investors</Text>
               </View>
             </TouchableOpacity>
-          ))
-        )}
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/payouts")}>
+              <View style={styles.actionCard}>
+                <Ionicons name="card-outline" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Payouts</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/entrepreneur/analytics')}>
+              <View style={styles.actionCard}>
+                <Ionicons name="stats-chart" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Insights</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
 
-        <View style={[styles.ctaCard, { marginTop: 24 }]}>
-          <Text style={styles.ctaTitle}>Launch a New Startup Idea</Text>
-          <Text style={styles.ctaSub}>Create a professional pitch and connect with investors.</Text>
-          <TouchableOpacity style={styles.ctaButton} onPress={() => router.push("/auth/investor-selection")}>
-            <Text style={styles.ctaBtnText}>Create Pitch</Text>
-          </TouchableOpacity>
-        </View>
+          {/* RECENT MESSAGES */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Conversations</Text>
+            <TouchableOpacity><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+          </View>
 
-        <Text style={styles.sectionTitle}>Active Pitches</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#4F46E5" />
-        ) : (
-          pitches.map((pitch) => (
-            <PitchCard key={pitch.id} title={pitch.title} raised={pitch.raisedAmount || 0} goal={pitch.fundingGoal || 1} status={pitch.status || "Open"} views={pitch.views || 0} interested={pitch.interested || 0} />
-          ))
-        )}
+          {recentChats.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No recent messages</Text>
+            </View>
+          ) : (
+            recentChats.slice(0, 2).map((chat) => (
+              <TouchableOpacity key={chat.id} onPress={() => router.push(`/chat/${chat.id}`)}>
+                <View style={[styles.chatCard, chat.isUnread && styles.unreadChatCard]}>
+                  <View style={styles.chatAvatar}>
+                    <Ionicons name="chatbubble-ellipses" size={20} color="#4F46E5" />
+                    {chat.isUnread && <View style={styles.unreadDot} />}
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 15 }}>
+                    <Text style={styles.chatTitle} numberOfLines={1}>{chat.pitchTitle}</Text>
+                    <Text style={styles.chatMsg} numberOfLines={1}>{chat.lastMessage}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
+          {/* ACTIVE PITCHES LIST */}
+          <Text style={styles.sectionTitle}>Active Portfolio</Text>
+          {loading ? (
+             <ActivityIndicator color="#4F46E5" style={{marginTop: 20}} />
+          ) : (
+            pitches.map(p => <PitchItem key={p.id} pitch={p} />)
+          )}
 
-      {/* FLOATING ACTION BUTTONS */}
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* FABs */}
       <TouchableOpacity style={styles.aiFab} onPress={() => setAiVisible(true)}>
-        <Ionicons name="sparkles" size={28} color="#FFFFFF" />
+        <LinearGradient colors={['#6366F1', '#4F46E5']} style={styles.fabGradient}>
+          <Ionicons name="sparkles" size={24} color="#fff" />
+        </LinearGradient>
       </TouchableOpacity>
 
       <BottomNavigation router={router} />
       <AIChatModal visible={aiVisible} onClose={() => setAiVisible(false)} pitchData={pitches[0]} />
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} userData={userData} onLogout={handleLogout} router={router} />
-    </SafeAreaView>
+    </View>
   );
 }
 
-/* ================= HELPER COMPONENTS ================= */
-
-const BottomNavigation = ({ router }) => (
-  <View style={styles.bottomNav}>
-    <TouchableOpacity onPress={() => router.push("/entrepreneur/dashboard")}><NavItem icon="home" active /></TouchableOpacity>
-    <TouchableOpacity onPress={() => router.push("/entrepreneur/my-pitches")}><NavItem icon="briefcase-outline" /></TouchableOpacity>
-    <TouchableOpacity onPress={() => router.push("/entrepreneur/analytics")}><NavItem icon="bar-chart-outline" /></TouchableOpacity>
-    <TouchableOpacity style={styles.fab} onPress={() => router.push("/auth/investor-selection")}>
-      <Ionicons name="add" size={30} color="#FFFFFF" />
-    </TouchableOpacity>
-    <TouchableOpacity onPress={() => {}}><NavItem icon="chatbubble-outline" /></TouchableOpacity>
-    <TouchableOpacity onPress={() => router.push("/profile")}><NavItem icon="person-outline" /></TouchableOpacity>
-  </View>
-);
-
-const NavItem = ({ icon, active }) => (
-  <View style={styles.navItem}>
-    <Ionicons name={icon} size={24} color={active ? "#4F46E5" : "#94A3B8"} />
-  </View>
-);
-
-const StatsCard = ({ title, value, icon, onPress }) => (
-  <TouchableOpacity style={styles.statsCard} onPress={onPress} activeOpacity={0.7} disabled={!onPress}>
-    <Ionicons name={icon} size={20} color="#4F46E5" />
-    <Text style={styles.statsValue}>{value}</Text>
-    <Text style={styles.statsTitle}>{title}</Text>
-  </TouchableOpacity>
-);
-
-const PitchCard = ({ title, raised, goal, status, views, interested }) => {
-  const percent = Math.min(Math.round((raised / goal) * 100), 100);
-  const getStatusColor = () => {
-    if (status === "Open") return "#16A34A";
-    if (status === "accepted") return "#10B981";
-    return "#EF4444";
-  };
+const PitchItem = ({ pitch }) => {
+  const percent = Math.min(Math.round(((pitch.raisedAmount || 0) / (pitch.fundingGoal || 1)) * 100), 100);
   return (
     <View style={styles.pitchCard}>
-      <View style={styles.pitchHeader}>
-        <Text style={styles.pitchTitle}>{title}</Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
-          <Text style={styles.statusText}>{status}</Text>
+      <View style={styles.pitchTop}>
+        <Text style={styles.pitchTitle}>{pitch.title}</Text>
+        <View style={styles.pitchStatus}>
+           <Text style={styles.statusText}>{pitch.status}</Text>
         </View>
       </View>
-      <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
-      <Text style={styles.progressText}>${raised} / ${goal} ({percent}% Funded)</Text>
-      <View style={styles.pitchFooter}>
-        <Text style={styles.pitchMeta}>👁 {views} Views</Text>
-        <Text style={styles.pitchMeta}>🤝 {interested} Interested</Text>
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}><View style={[styles.progressFill, { width: `${percent}%` }]} /></View>
+        <Text style={styles.progressLabel}>{percent}%</Text>
+      </View>
+      <View style={styles.pitchMeta}>
+        <Text style={styles.metaTxt}>${pitch.raisedAmount?.toLocaleString()} raised</Text>
+        <Text style={styles.metaTxt}>👁 {pitch.views} Views</Text>
       </View>
     </View>
   );
 };
 
-/* ================= STYLES ================= */
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F4F6FB", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, backgroundColor: "#FFFFFF", justifyContent: "space-between", elevation: 2 },
-  headerTitle: { fontSize: 18, fontWeight: "800" },
-  headerIcons: { flexDirection: "row", gap: 12, alignItems: 'center' },
-  badgeDot: { position: 'absolute', right: -2, top: -2, backgroundColor: '#EF4444', width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: '#FFFFFF' },
-  welcomeRow: { flexDirection: "row", justifyContent: "space-between", padding: 16, alignItems: "center" },
-  welcomeText: { fontSize: 14, color: "#6B7280" },
-  welcomeName: { fontSize: 22, fontWeight: "800" },
-  roleBadge: { flexDirection: "row", backgroundColor: "#DBEAFE", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, alignItems: "center", gap: 4 },
-  roleText: { fontSize: 11, fontWeight: "700", color: "#2563EB" },
-  statsRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", paddingHorizontal: 16 },
-  statsCard: { backgroundColor: "#FFFFFF", width: "48%", padding: 16, borderRadius: 16, marginBottom: 12, elevation: 3 },
-  statsValue: { fontSize: 18, fontWeight: "800", marginTop: 4 },
-  statsTitle: { fontSize: 12, color: "#6B7280" },
-  statsContainer: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 4 },
-  statCard: { backgroundColor: "#FFFFFF", width: "100%", padding: 16, borderRadius: 16, elevation: 3 },
-  statLabel: { fontSize: 13, color: "#111827", fontWeight: "700", marginTop: 8 },
-  
-  // ANALYTICS BUTTON STYLES
-  analyticsBtn: {
-    backgroundColor: '#4F46E5', 
-    marginHorizontal: 16,
-    padding: 18,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    marginBottom: 10,
-    elevation: 4,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  btnContent: { flexDirection: 'row', alignItems: 'center' },
-  chartIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  btnSubText: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '500' },
+const BottomNavigation = ({ router }) => (
+  <BlurView intensity={90} tint="light" style={styles.bottomNav}>
+    <TouchableOpacity onPress={() => router.push("/entrepreneur/dashboard")}><NavItem icon="grid" active /></TouchableOpacity>
+    <TouchableOpacity onPress={() => router.push("/entrepreneur/my-pitches")}><NavItem icon="briefcase" /></TouchableOpacity>
+    <View style={{width: 60}} />
+    <TouchableOpacity style={styles.centerFab} onPress={() => router.push("/auth/investor-selection")}>
+      <LinearGradient colors={['#4F46E5', '#3730A3']} style={styles.fabGradient}>
+        <Ionicons name="add" size={32} color="#fff" />
+      </LinearGradient>
+    </TouchableOpacity>
+    <TouchableOpacity onPress={() => router.push("/entrepreneur/analytics")}><NavItem icon="bar-chart" /></TouchableOpacity>
+    <TouchableOpacity onPress={() => router.push("/profile")}><NavItem icon="person" /></TouchableOpacity>
+  </BlurView>
+);
 
-  ctaCard: { backgroundColor: "#4F46E5", marginHorizontal: 16, borderRadius: 20, padding: 20 },
-  ctaTitle: { fontSize: 18, fontWeight: "800", color: "#FFFFFF" },
-  ctaSub: { fontSize: 13, color: "#E0E7FF", marginVertical: 10 },
-  ctaButton: { backgroundColor: "#FFFFFF", paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, alignSelf: "flex-start" },
-  ctaBtnText: { fontWeight: "700", color: "#4F46E5" },
-  sectionTitle: { fontSize: 16, fontWeight: "800", marginHorizontal: 16, marginTop: 24, marginBottom: 12 },
-  emptyText: { textAlign: "center", marginTop: 20, color: "#6B7280" },
-  pitchCard: { backgroundColor: "#FFFFFF", marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 16 },
-  pitchHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  pitchTitle: { fontSize: 15, fontWeight: "700" },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  statusText: { fontSize: 10, color: "#FFFFFF", fontWeight: "700" },
-  progressBar: { height: 8, backgroundColor: "#E5E7EB", borderRadius: 10, marginVertical: 8 },
-  progressFill: { height: 8, backgroundColor: "#4F46E5", borderRadius: 10 },
-  progressText: { fontSize: 12, color: "#6B7280" },
-  pitchFooter: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
-  pitchMeta: { fontSize: 12, color: "#6B7280" },
-  bottomNav: { position: "absolute", bottom: 0, left: 0, right: 0, height: 75, backgroundColor: "#FFFFFF", flexDirection: "row", justifyContent: "space-around", alignItems: "center", borderTopWidth: 1, borderColor: "#E5E7EB" },
-  navItem: { alignItems: "center" },
-  fab: { width: 65, height: 65, borderRadius: 32, backgroundColor: "#4F46E5", alignItems: "center", justifyContent: "center", marginBottom: 35, elevation: 6 },
-  aiFab: { position: "absolute", right: 20, bottom: 110, width: 60, height: 60, borderRadius: 30, backgroundColor: "#6366f1", alignItems: "center", justifyContent: "center", elevation: 8 },
+const NavItem = ({ icon, active }) => (
+  <View style={styles.navItem}>
+    <Ionicons name={icon} size={24} color={active ? "#4F46E5" : "#94A3B8"} />
+    {active && <View style={styles.activeDot} />}
+  </View>
+);
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#FFFFFF' },
+  headerTitle: { color: '#1E293B', fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  headerIcons: { flexDirection: 'row', gap: 10 },
+  badgeDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#FFFFFF' },
   
-  chatItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: 16, padding: 16, borderRadius: 16, marginBottom: 8, elevation: 2 },
-  chatIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
-  chatPitchTitle: { fontSize: 15, fontWeight: '700', color: '#111827' },
-  chatLastMsg: { fontSize: 13, color: '#6B7280', marginTop: 2 },
-  unreadDot: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#FFFFFF' },
+  welcomeContainer: { paddingHorizontal: 20, marginTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  welcomeLabel: { color: '#64748B', fontSize: 14, fontWeight: '600' },
+  welcomeTitle: { color: '#1E293B', fontSize: 26, fontWeight: '800', marginTop: 2 },
+  roleBadge: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  roleText: { color: '#4F46E5', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+
+  heroCard: { marginHorizontal: 20, marginTop: 25, borderRadius: 32, padding: 25, overflow: 'hidden', elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 } },
+  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heroLabelLight: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
+  heroIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16, 185, 129, 0.2)', justifyContent: 'center', alignItems: 'center' },
+  heroValueLight: { color: '#fff', fontSize: 44, fontWeight: '900', marginVertical: 12 },
+  heroFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
+  heroSubTextLight: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },
+
+  statGrid: { flexDirection: 'row', paddingHorizontal: 15, marginTop: 15 },
+  statBoxWrapper: { flex: 1, padding: 5 },
+  statBox: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
+  statNumber: { color: '#1E293B', fontSize: 24, fontWeight: '800', marginTop: 8 },
+  statTitle: { color: '#64748B', fontSize: 12, fontWeight: '700', marginTop: 2 },
+
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 20 },
+  actionBtn: { width: '31%' },
+  actionCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 15, alignItems: 'center', elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8 },
+  actionText: { color: '#1E293B', fontSize: 11, fontWeight: '800', marginTop: 8 },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 10 },
+  sectionTitle: { color: '#1E293B', fontSize: 18, fontWeight: '800', marginHorizontal: 20, marginTop: 25, marginBottom: 15 },
+  seeAll: { color: '#4F46E5', fontSize: 13, fontWeight: '700' },
+
+  chatCard: { backgroundColor: '#FFFFFF', marginHorizontal: 20, marginBottom: 12, borderRadius: 24, padding: 16, flexDirection: 'row', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5 },
+  unreadChatCard: { borderLeftWidth: 4, borderLeftColor: '#4F46E5', backgroundColor: '#F5F3FF' },
+  chatAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  chatTitle: { color: '#1E293B', fontSize: 15, fontWeight: '800' },
+  chatMsg: { color: '#64748B', fontSize: 13, marginTop: 2 },
+  unreadDot: { position: 'absolute', top: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#F5F3FF' },
+  emptyCard: { marginHorizontal: 20, padding: 30, borderRadius: 24, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.02)' },
+  emptyText: { color: '#94A3B8', fontWeight: '600' },
+
+  pitchCard: { backgroundColor: '#FFFFFF', marginHorizontal: 20, marginBottom: 15, borderRadius: 28, padding: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
+  pitchTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pitchTitle: { color: '#1E293B', fontSize: 16, fontWeight: '800', flex: 1 },
+  pitchStatus: { backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  statusText: { color: '#10B981', fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  progressContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 15 },
+  progressBar: { flex: 1, height: 6, backgroundColor: '#F1F5F9', borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: '#4F46E5', borderRadius: 3 },
+  progressLabel: { color: '#1E293B', fontSize: 12, fontWeight: '800', marginLeft: 10 },
+  pitchMeta: { flexDirection: 'row', justifyContent: 'space-between' },
+  metaTxt: { color: '#64748B', fontSize: 12, fontWeight: '600' },
+
+  aiFab: { position: 'absolute', bottom: 100, right: 20, width: 56, height: 56, borderRadius: 28, elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.4, shadowRadius: 12 },
+  fabGradient: { flex: 1, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+  
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 90, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 25, borderTopWidth: 1, borderColor: '#F1F5F9' },
+  navItem: { alignItems: 'center', justifyContent: 'center' },
+  activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 },
+  centerFab: { position: 'absolute', bottom: 40, width: 66, height: 66, borderRadius: 33, elevation: 12, shadowColor: '#4F46E5', shadowOpacity: 0.4, shadowRadius: 15 },
 });

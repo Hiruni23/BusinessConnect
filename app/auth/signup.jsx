@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 
 // --- FIREBASE IMPORTS ---
 import { auth, db } from '../../firebaseConfig';
@@ -29,7 +30,7 @@ const SignUpScreen = () => {
   // STATE FOR INPUTS
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState(''); // 🔥 Added Phone Number State
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,7 @@ const SignUpScreen = () => {
         uid: user.uid,
         fullName: name,
         email: email.trim().toLowerCase(),
-        phoneNumber: phoneNumber.trim(), // 🔥 Saved Phone Number to Firestore
+        phoneNumber: phoneNumber.trim(),
         createdAt: serverTimestamp(),
         setupComplete: false, 
       });
@@ -96,7 +97,7 @@ const SignUpScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#2F43D6', '#5F7CFF', '#172554']}
+      colors={['#0F172A', '#1E3A8A', '#020617']}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
@@ -106,14 +107,14 @@ const SignUpScreen = () => {
           style={styles.topLeftArrowContainer} 
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/auth/welcome'))}
         >
-          <View style={styles.circleBorder}>
+          <BlurView intensity={20} tint="light" style={styles.circleBorder}>
             <Ionicons name="chevron-back" size={24} color="white" />
-          </View>
+          </BlurView>
         </TouchableOpacity>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
+          style={styles.keyboardView}
         >
           <ScrollView 
             showsVerticalScrollIndicator={false}
@@ -130,20 +131,20 @@ const SignUpScreen = () => {
               </View>
               <Text style={styles.brandName}>BusinessConnect</Text>
               <Text style={styles.brandSlogan}>
-                Empowering Entrepreneurs,{"\n"}Engaging Investors
+                Create an account to get started
               </Text>
             </View>
 
-            <View style={styles.formCard}>
+            <BlurView intensity={40} tint="dark" style={styles.formCard}>
               <Text style={styles.formTitle}>Sign Up</Text>
 
               {/* Name Input */}
               <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color="#000" style={styles.inputIcon} />
+                <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput 
-                  placeholder="Name" 
+                  placeholder="Full Name" 
                   style={styles.input} 
-                  placeholderTextColor="#999"
+                  placeholderTextColor="#94A3B8"
                   value={name}
                   onChangeText={setName}
                 />
@@ -151,11 +152,11 @@ const SignUpScreen = () => {
 
               {/* Email Input */}
               <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={20} color="#000" style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput 
-                  placeholder="Email" 
+                  placeholder="Email Address" 
                   style={styles.input} 
-                  placeholderTextColor="#999" 
+                  placeholderTextColor="#94A3B8" 
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}
@@ -163,13 +164,13 @@ const SignUpScreen = () => {
                 />
               </View>
 
-              {/* 🔥 Phone Number Input */}
+              {/* Phone Number Input */}
               <View style={styles.inputContainer}>
-                <Ionicons name="call-outline" size={20} color="#000" style={styles.inputIcon} />
+                <Ionicons name="call-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Phone Number (e.g. +94771234567)"
-                  placeholderTextColor="#999"
+                  placeholderTextColor="#94A3B8"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
@@ -178,11 +179,11 @@ const SignUpScreen = () => {
 
               {/* Password Input */}
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#000" style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Password" 
                   style={styles.input} 
-                  placeholderTextColor="#999" 
+                  placeholderTextColor="#94A3B8" 
                   secureTextEntry 
                   value={password}
                   onChangeText={setPassword}
@@ -191,11 +192,11 @@ const SignUpScreen = () => {
 
               {/* Confirm Password Input */}
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#000" style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
                 <TextInput 
                   placeholder="Confirm Password" 
                   style={styles.input} 
-                  placeholderTextColor="#999" 
+                  placeholderTextColor="#94A3B8" 
                   secureTextEntry 
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -203,7 +204,7 @@ const SignUpScreen = () => {
               </View>
 
               <TouchableOpacity 
-                style={styles.signUpButton} 
+                style={[styles.signUpButton, loading && { opacity: 0.7 }]}
                 onPress={handleSignUp}
                 disabled={loading}
               >
@@ -220,7 +221,7 @@ const SignUpScreen = () => {
                   <Text style={styles.loginText}>Log In</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </BlurView>
 
           </ScrollView>
         </KeyboardAvoidingView>
@@ -232,77 +233,87 @@ const SignUpScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
+  keyboardView: { flex: 1 },
   topLeftArrowContainer: {
     position: 'absolute',
     top: 50,
     left: 25,
     zIndex: 10,
+    borderRadius: 22,
+    overflow: 'hidden',
   },
   circleBorder: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    borderWidth: 2,
-    borderColor: 'white',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   scrollContent: {
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 80,
     paddingBottom: 60,
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 40,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#fff',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
-    elevation: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  logo: { width: 60, height: 60 },
-  brandName: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
-  brandSlogan: { fontSize: 14, color: '#fff', textAlign: 'center', opacity: 0.8 },
+  logo: { width: 90, height: 90, borderRadius: 45, overflow: 'hidden' },
+  brandName: { fontSize: 32, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
+  brandSlogan: { fontSize: 15, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 8 },
   formCard: {
     width: '90%',
-    backgroundColor: '#F8F9FA',
     borderRadius: 30,
-    padding: 25,
-    marginTop: 10,
-    elevation: 5,
+    padding: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
   },
-  formTitle: { fontSize: 24, fontWeight: 'bold', color: '#032a96', marginBottom: 20 },
+  formTitle: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 24 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 15,
-    marginBottom: 15,
-    paddingHorizontal: 15,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
+    marginBottom: 16,
+    paddingHorizontal: 16,
     height: 60,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, color: '#333', fontSize: 16 },
+  inputIcon: { marginRight: 12 },
+  input: { flex: 1, color: '#fff', fontSize: 16 },
   signUpButton: {
-    backgroundColor: '#0851c5',
-    borderRadius: 30,
-    height: 60,
+    backgroundColor: '#3B82F6',
+    borderRadius: 16,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
     marginTop: 10,
   },
-  signUpButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  loginLinkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  alreadyText: { color: '#666' },
-  loginText: { color: '#1e40af', fontWeight: 'bold' },
+  signUpButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  loginLinkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
+  alreadyText: { color: 'rgba(255,255,255,0.6)', fontSize: 14 },
+  loginText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
 
 export default SignUpScreen;

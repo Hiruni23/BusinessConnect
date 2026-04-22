@@ -11,6 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -19,32 +21,30 @@ const WelcomeScreen = () => {
 
   return (
     <LinearGradient
-      colors={['#2F43D6', '#5F7CFF', '#3e6bf3ff']}
+      colors={['#0F172A', '#1E3A8A', '#020617']}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea}>
         
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>Welcome Back!</Text>
+          <Text style={styles.welcomeText}>BusinessConnect</Text>
           <Text style={styles.subtitleText}>Connecting Ideas, People, and Growth</Text>
         </View>
 
         {/* --- GLOWING ROUND IMAGE SECTION --- */}
         <View style={styles.illustrationContainer}>
-          {/* Outer Glow Layer */}
-          <View style={styles.outerGlow}>
-            {/* Inner Shadow/Border Layer */}
-            <View style={styles.imageShadowBox}>
-              <View style={styles.imageRoundWrapper}>
-                <Image
-                  source={require('../../assets/images/welcome.png')}
-                  style={styles.illustration}
-                  resizeMode="cover"
-                />
-              </View>
+          {/* Outer Glass Halo */}
+          <BlurView intensity={30} tint="light" style={styles.outerGlow}>
+            {/* Inner Border Layer */}
+            <View style={styles.imageRoundWrapper}>
+              <Image
+                source={require('../../assets/images/welcome.png')}
+                style={styles.illustration}
+                resizeMode="cover"
+              />
             </View>
-          </View>
+          </BlurView>
         </View>
 
         <View style={styles.buttonContainer}>
@@ -52,14 +52,17 @@ const WelcomeScreen = () => {
             style={styles.signUpButton}
             onPress={() => router.push('/auth/signup')}
           >
-            <Text style={styles.signUpText}>Sign Up</Text>
+            <Text style={styles.signUpText}>Get Started</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.logInButton}
+            style={styles.logInButtonWrapper}
             onPress={() => router.push('/auth/login')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.logInText}>Log In</Text>
+            <BlurView intensity={30} tint="dark" style={styles.logInButton}>
+              <Text style={styles.logInText}>Log In</Text>
+            </BlurView>
           </TouchableOpacity>
         </View>
 
@@ -83,16 +86,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   welcomeText: {
-    fontSize: 40,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 8,
+    letterSpacing: 0.5,
+    marginBottom: 12,
   },
   subtitleText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    color: 'rgba(255,255,255,0.7)',
     textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 22,
   },
   illustrationContainer: {
     width: width,
@@ -103,27 +108,25 @@ const styles = StyleSheet.create({
     width: width * 0.88,
     height: width * 0.88,
     borderRadius: (width * 0.88) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)', // Soft outer halo
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imageShadowBox: {
-    // Standard Shadow for iOS
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    // Elevation for Android
-    elevation: 20,
+    overflow: 'hidden', 
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   imageRoundWrapper: {
     width: width * 0.78,
     height: width * 0.78,
     borderRadius: (width * 0.78) / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: 'rgba(255, 255, 255, 0.8)', // Sharp inner white border
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
   },
   illustration: {
     width: '100%',
@@ -135,33 +138,40 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   signUpButton: {
-    backgroundColor: '#3248D7',
+    backgroundColor: '#3B82F6',
     paddingVertical: 18,
-    borderRadius: 15,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 15,
-    // Add shadow to button too
-    elevation: 5,
-    shadowColor: "#000",
+    marginBottom: 16,
+    elevation: 8,
+    shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   signUpText: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  logInButtonWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   logInButton: {
-    backgroundColor: '#F0F0F0',
     paddingVertical: 18,
-    borderRadius: 15,
     alignItems: 'center',
-    elevation: 2,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
   },
   logInText: {
-    color: '#3248D7',
-    fontSize: 20,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 
