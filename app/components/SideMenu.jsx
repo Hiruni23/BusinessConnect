@@ -44,6 +44,7 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
   const entrepreneurItems = [
     { label: "Dashboard", icon: "grid-outline", path: "/entrepreneur/dashboard" },  
     { label: "My Pitches", icon: "rocket-outline", path: "/entrepreneur/my-pitches" },
+    { label: "Meeting Sessions", icon: "calendar-outline", path: "/entrepreneur/meetings" },
     { label: "Notifications", icon: "notifications-outline", path: "/entrepreneur/notifications" },
   ];
 
