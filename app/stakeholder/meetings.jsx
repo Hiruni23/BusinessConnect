@@ -11,10 +11,13 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  Linking,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Calendar from 'expo-calendar';
 import {
   collection,
   query,
@@ -67,6 +70,47 @@ export default function StakeholderMeetings() {
     }
   };
 
+  const addToCalendar = async (item) => {
+    const { status } = await Calendar.requestCalendarPermissionsAsync();
+    if (status === 'granted') {
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      let calendarId = calendars.find(c => c.title === 'BusinessConnect')?.id;
+
+      if (!calendarId) {
+        // Create a new calendar if it doesn't exist (Android needs more details)
+        const defaultCalendarSource = Platform.OS === 'ios'
+          ? await Calendar.getDefaultCalendarSourceAsync()
+          : { name: 'BusinessConnect', type: 'LOCAL' };
+        
+        calendarId = await Calendar.createCalendarAsync({
+          title: 'BusinessConnect',
+          color: '#4F46E5',
+          entityType: Calendar.EntityTypes.EVENT,
+          sourceId: defaultCalendarSource.id,
+          source: defaultCalendarSource,
+          name: 'businessconnect',
+          ownerAccount: 'personal',
+          accessLevel: Calendar.CalendarAccessLevel.OWNER,
+        });
+      }
+
+      const startDate = item.scheduledAt.toDate();
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+
+      await Calendar.createEventAsync(calendarId, {
+        title: `BC Session: ${item.title}`,
+        startDate,
+        endDate,
+        location: item.meetingLink || "TBD",
+        notes: `Meeting with ${item.entrepreneurName}. Link: ${item.meetingLink || "None"}`,
+      });
+
+      Alert.alert("Success", "Event added to your calendar!");
+    } else {
+      Alert.alert("Permission Denied", "We need calendar access to add meetings.");
+    }
+  };
+
 
   const renderMeeting = ({ item }) => (
     <View style={styles.meetingCard}>
@@ -89,6 +133,31 @@ export default function StakeholderMeetings() {
         </View>
       </View>
       <View style={styles.cardActions}>
+        <TouchableOpacity 
+            style={[styles.smallBtn, { backgroundColor: '#F1F5F9', borderHeight: 1, borderColor: '#E2E8F0' }]}
+            onPress={() => addToCalendar(item)}
+        >
+            <Ionicons name="calendar-outline" size={14} color="#64748B" />
+        </TouchableOpacity>
+
+        {item.meetingLink ? (
+            <TouchableOpacity 
+                style={[styles.smallBtn, { backgroundColor: '#6366F1', flexDirection: 'row', gap: 6 }]}
+                onPress={() => {
+                    Linking.canOpenURL(item.meetingLink).then(supported => {
+                        if (supported) {
+                            Linking.openURL(item.meetingLink);
+                        } else {
+                            Alert.alert("Invalid Link", "This meeting link is not valid.");
+                        }
+                    });
+                }}
+            >
+                <Ionicons name="videocam" size={14} color="#fff" />
+                <Text style={styles.smallBtnText}>Join Session</Text>
+            </TouchableOpacity>
+        ) : null}
+
         {item.status === 'scheduled' && (
             <TouchableOpacity 
                 style={[styles.smallBtn, { backgroundColor: '#4F46E5' }]}
