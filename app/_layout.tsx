@@ -231,6 +231,19 @@ export default function RootLayout() {
           setInitialRouteLoaded(true);
           return;
         }
+        if (normalizedRole === "customer") {
+          const inCustomer = firstSegment === "customer";
+          if (inCustomer || inChat) {
+            setInitialRouteLoaded(true);
+            return;
+          }
+
+          if (!inCustomer) {
+            router.replace("/customer/dashboard" as any);
+          }
+          setInitialRouteLoaded(true);
+          return;
+        }
         /* ===============================
            👥 OTHER ROLES (FUTURE)
         =============================== */
@@ -282,6 +295,9 @@ export default function RootLayout() {
         <Stack.Screen name="entrepreneur/dashboard" />
         <Stack.Screen name="entrepreneur/create-pitch" />
 
+        {/* Customer */}
+        <Stack.Screen name="customer" />
+        
         {/* Investor */}
         <Stack.Screen name="investor/inbox" options={{ headerShown: false }} />
 
