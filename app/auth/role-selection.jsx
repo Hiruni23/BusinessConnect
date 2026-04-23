@@ -51,7 +51,7 @@ export default function RoleSelection() {
           break;
 
         case "customer":
-          router.replace("/(tabs)/dashboard");
+          router.replace("/customer/dashboard");
           break;
 
         default:

@@ -8,9 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
-  Modal,
-  TextInput,
-  ScrollView,
   Linking,
   Platform,
 } from "react-native";
@@ -23,18 +20,13 @@ import {
   query,
   where,
   onSnapshot,
-  orderBy,
-  addDoc,
   doc,
   updateDoc,
-  deleteDoc,
-  serverTimestamp,
-  getDocs,
 } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import { LinearGradient } from "expo-linear-gradient";
 
-export default function StakeholderMeetings() {
+export default function EntrepreneurMeetings() {
   const router = useRouter();
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,14 +37,14 @@ export default function StakeholderMeetings() {
 
     const q = query(
       collection(db, "meetings"),
-      where("stakeholderId", "==", user.uid)
+      where("entrepreneurId", "==", user.uid)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      // Sort manually to avoid index requirement
+      // Sort manually
       const sorted = list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       setMeetings(sorted);
       setLoading(false);
@@ -61,15 +53,6 @@ export default function StakeholderMeetings() {
     return () => unsubscribe();
   }, [user]);
 
-
-  const handleStatusUpdate = async (id, status) => {
-    try {
-      await updateDoc(doc(db, "meetings", id), { status });
-    } catch (e) {
-        console.error(e);
-    }
-  };
-
   const addToCalendar = async (item) => {
     const { status } = await Calendar.requestCalendarPermissionsAsync();
     if (status === 'granted') {
@@ -77,7 +60,6 @@ export default function StakeholderMeetings() {
       let calendarId = calendars.find(c => c.title === 'BusinessConnect')?.id;
 
       if (!calendarId) {
-        // Create a new calendar if it doesn't exist (Android needs more details)
         const defaultCalendarSource = Platform.OS === 'ios'
           ? await Calendar.getDefaultCalendarSourceAsync()
           : { name: 'BusinessConnect', type: 'LOCAL' };
@@ -95,14 +77,14 @@ export default function StakeholderMeetings() {
       }
 
       const startDate = item.scheduledAt.toDate();
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour duration
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
 
       await Calendar.createEventAsync(calendarId, {
         title: `BC Session: ${item.title}`,
         startDate,
         endDate,
         location: item.meetingLink || "TBD",
-        notes: `Meeting with ${item.entrepreneurName}. Link: ${item.meetingLink || "None"}`,
+        notes: `Meeting with ${item.stakeholderName}. Link: ${item.meetingLink || "None"}`,
       });
 
       Alert.alert("Success", "Event added to your calendar!");
@@ -111,16 +93,26 @@ export default function StakeholderMeetings() {
     }
   };
 
+  const handleJoin = (link) => {
+    if (!link) return;
+    Linking.canOpenURL(link).then(supported => {
+      if (supported) {
+        Linking.openURL(link);
+      } else {
+        Alert.alert("Invalid Link", "This meeting link is not valid.");
+      }
+    });
+  };
 
   const renderMeeting = ({ item }) => (
     <View style={styles.meetingCard}>
       <View style={styles.meetingInfo}>
         <View style={styles.avatar}>
-           <Text style={styles.avatarText}>{item.entrepreneurName?.charAt(0)}</Text>
+           <Ionicons name="person-outline" size={24} color="#4F46E5" />
         </View>
         <View style={{ flex: 1, marginLeft: 15 }}>
             <Text style={styles.meetingTitle}>{item.title}</Text>
-            <Text style={styles.entrepreneurName}>Founder: {item.entrepreneurName}</Text>
+            <Text style={styles.stakeholderName}>Host: {item.stakeholderName}</Text>
             <View style={styles.dateRow}>
                 <Ionicons name="calendar-outline" size={14} color="#64748B" />
                 <Text style={styles.meetingDate}>{item.dateString}</Text>
@@ -132,9 +124,10 @@ export default function StakeholderMeetings() {
             </Text>
         </View>
       </View>
+      
       <View style={styles.cardActions}>
         <TouchableOpacity 
-            style={[styles.smallBtn, { backgroundColor: '#F1F5F9', borderHeight: 1, borderColor: '#E2E8F0' }]}
+            style={[styles.smallBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' }]}
             onPress={() => addToCalendar(item)}
         >
             <Ionicons name="calendar-outline" size={14} color="#64748B" />
@@ -143,40 +136,23 @@ export default function StakeholderMeetings() {
         {item.meetingLink ? (
             <TouchableOpacity 
                 style={[styles.smallBtn, { backgroundColor: '#6366F1', flexDirection: 'row', gap: 6 }]}
-                onPress={() => {
-                    Linking.canOpenURL(item.meetingLink).then(supported => {
-                        if (supported) {
-                            Linking.openURL(item.meetingLink);
-                        } else {
-                            Alert.alert("Invalid Link", "This meeting link is not valid.");
-                        }
-                    });
-                }}
+                onPress={() => handleJoin(item.meetingLink)}
             >
                 <Ionicons name="videocam" size={14} color="#fff" />
                 <Text style={styles.smallBtnText}>Join Session</Text>
             </TouchableOpacity>
-        ) : null}
-
-        {item.status === 'scheduled' && (
-            <TouchableOpacity 
-                style={[styles.smallBtn, { backgroundColor: '#4F46E5' }]}
-                onPress={() => handleStatusUpdate(item.id, 'completed')}
-            >
-                <Text style={styles.smallBtnText}>Complete</Text>
-            </TouchableOpacity>
+        ) : (
+            <View style={[styles.smallBtn, { backgroundColor: '#F1F5F9' }]}>
+                <Text style={[styles.smallBtnText, { color: '#94A3B8' }]}>No Link Provided</Text>
+            </View>
         )}
-        <TouchableOpacity 
-            style={[styles.smallBtn, { backgroundColor: '#F1F5F9' }]}
-            onPress={() => {
-                Alert.alert("Confirm", "Delete this session?", [
-                    { text: "Cancel" },
-                    { text: "Delete", onPress: () => deleteDoc(doc(db, "meetings", item.id)), style: 'destructive' }
-                ])
-            }}
-        >
-            <Text style={[styles.smallBtnText, { color: '#EF4444' }]}>Cancel</Text>
-        </TouchableOpacity>
+        
+        <View style={{ flex: 1 }} />
+        
+        <View style={styles.infoBadge}>
+            <Ionicons name="shield-checkmark-outline" size={12} color="#10B981" />
+            <Text style={styles.infoBadgeText}>Verified Session</Text>
+        </View>
       </View>
     </View>
   );
@@ -191,10 +167,8 @@ export default function StakeholderMeetings() {
             <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
                 <Ionicons name="arrow-back" size={24} color="#1E293B" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Meeting Sessions</Text>
-            <TouchableOpacity onPress={() => router.push("/stakeholder/schedule-meeting")} style={styles.headerBtn}>
-                <Ionicons name="add" size={24} color="#4F46E5" />
-            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Meeting Sessions</Text>
+            <View style={{ width: 40 }} />
         </View>
 
         {loading ? (
@@ -208,13 +182,12 @@ export default function StakeholderMeetings() {
             ListEmptyComponent={
                 <View style={styles.emptyState}>
                     <Ionicons name="calendar-outline" size={60} color="#CBD5E1" />
-                    <Text style={styles.emptyTitle}>No Sessions Scheduled</Text>
-                    <Text style={styles.emptySub}>Start meeting startups by scheduling a session.</Text>
+                    <Text style={styles.emptyTitle}>No Sessions Found</Text>
+                    <Text style={styles.emptySub}>Your meetings with stakeholders will appear here.</Text>
                 </View>
             }
           />
         )}
-
       </SafeAreaView>
     </View>
   );
@@ -222,62 +195,25 @@ export default function StakeholderMeetings() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8FAFC" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  headerTitle: { fontSize: 20, fontFamily: 'outfit-bold', fontWeight: '900', color: '#1E293B' },
-  headerBtn: { 
-    width: 40, 
-    height: 40, 
-    borderRadius: 20, 
-    backgroundColor: '#FFFFFF', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5
-  },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 15 },
+  headerTitle: { fontSize: 20, fontWeight: '900', color: '#1E293B' },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', elevation: 3 },
   listPadding: { padding: 20 },
-  meetingCard: { 
-    backgroundColor: "#FFFFFF", 
-    borderRadius: 28, 
-    padding: 20, 
-    marginBottom: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10
-  },
+  meetingCard: { backgroundColor: "#FFFFFF", borderRadius: 28, padding: 20, marginBottom: 15, elevation: 3 },
   meetingInfo: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 50, height: 50, borderRadius: 16, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 22, fontFamily: 'outfit-bold', color: '#4F46E5', fontWeight: '800' },
-  meetingTitle: { fontSize: 16, fontFamily: 'outfit-bold', color: '#1E293B', fontWeight: '800' },
-  entrepreneurName: { fontSize: 13, fontFamily: 'outfit-medium', color: '#64748B', marginTop: 2 },
+  meetingTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
+  stakeholderName: { fontSize: 13, color: '#64748B', marginTop: 2 },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  meetingDate: { fontSize: 12, fontFamily: 'outfit-bold', color: '#94A3B8' },
+  meetingDate: { fontSize: 12, color: '#94A3B8', fontWeight: '700' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  statusText: { fontSize: 10, fontFamily: 'outfit-bold', fontWeight: '800' },
-  cardActions: { flexDirection: 'row', gap: 10, marginTop: 20, borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 15 },
+  statusText: { fontSize: 10, fontWeight: '800' },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 15 },
   smallBtn: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center' },
-  smallBtnText: { color: '#fff', fontSize: 12, fontFamily: 'outfit-bold', fontWeight: '800' },
-  
+  smallBtnText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  infoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  infoBadgeText: { fontSize: 10, fontWeight: '800', color: '#10B981' },
   emptyState: { alignItems: 'center', marginTop: 100 },
-  emptyTitle: { fontSize: 18, fontFamily: 'outfit-bold', color: '#1E293B', fontWeight: '800', marginTop: 20 },
-  emptySub: { fontSize: 14, fontFamily: 'outfit-medium', color: '#94A3B8', marginTop: 8, textAlign: 'center' },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 32, padding: 25 },
-  modalHeader: { fontSize: 22, fontFamily: 'outfit-bold', color: '#1E293B', fontWeight: '800', marginBottom: 20 },
-  inputLabel: { fontSize: 12, fontFamily: 'outfit-bold', color: '#94A3B8', fontWeight: '800', letterSpacing: 0.5, marginBottom: 8, marginTop: 15 },
-  input: { backgroundColor: '#F1F5F9', borderRadius: 14, padding: 14, fontFamily: 'outfit-medium', fontSize: 15, color: '#1E293B' },
-  eItem: { padding: 12, borderRadius: 12, backgroundColor: '#F8FAFC', marginBottom: 6 },
-  eItemSelected: { backgroundColor: '#4F46E5' },
-  eItemText: { fontSize: 14, fontFamily: 'outfit-medium', color: '#1E293B' },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 25 },
-  modalBtn: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center' }
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginTop: 20 },
+  emptySub: { fontSize: 14, color: '#94A3B8', marginTop: 8, textAlign: 'center' },
 });

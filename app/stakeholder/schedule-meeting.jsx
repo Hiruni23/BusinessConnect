@@ -34,6 +34,7 @@ export default function ScheduleMeeting() {
 
   // Form State
   const [meetingTitle, setMeetingTitle] = useState("");
+  const [meetingLink, setMeetingLink] = useState("");
   const [selectedEntrepreneur, setSelectedEntrepreneur] = useState(null);
   const [entrepreneurs, setEntrepreneurs] = useState([]);
   
@@ -85,6 +86,7 @@ export default function ScheduleMeeting() {
         entrepreneurId: selectedEntrepreneur.id,
         entrepreneurName: selectedEntrepreneur.fullName || "Founder",
         title: meetingTitle,
+        meetingLink: meetingLink || "",
         scheduledAt: date,
         dateString: dateString,
         status: "scheduled",
@@ -180,6 +182,22 @@ export default function ScheduleMeeting() {
              </TouchableOpacity>
           </View>
 
+          <Text style={styles.sectionTitle}>4. Virtual Connection</Text>
+          <View style={styles.inputCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="link-outline" size={20} color="#6366F1" />
+              <TextInput 
+                  style={[styles.textInput, { flex: 1 }]}
+                  placeholder="Zoom or Google Meet link..."
+                  placeholderTextColor="#94A3B8"
+                  value={meetingLink}
+                  onChangeText={setMeetingLink}
+                  autoCapitalize="none"
+              />
+            </View>
+          </View>
+          <Text style={styles.hintText}>Leave empty if meeting in-person or to be decided.</Text>
+
           {show && (
             <DateTimePicker
               testID="dateTimePicker"
@@ -230,5 +248,6 @@ const styles = StyleSheet.create({
 
   submitBtn: { height: 65, borderRadius: 24, overflow: 'hidden', elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.3, shadowRadius: 15 },
   btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  submitText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1.5 }
+  submitText: { color: '#fff', fontSize: 14, fontWeight: '900', letterSpacing: 1.5 },
+  hintText: { fontSize: 11, color: '#94A3B8', fontStyle: 'italic', marginTop: -15, marginBottom: 25, paddingHorizontal: 5 }
 });
