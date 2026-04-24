@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from "../../firebaseConfig";
 import { calculateMatchScore } from "../../utils/matchAlgorithm";
 import SideMenu from "../components/SideMenu";
+import NotificationBell from '../../components/NotificationBell';
 
 export default function InvestorDashboard() {
   const router = useRouter();
@@ -34,7 +35,6 @@ export default function InvestorDashboard() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
   const [pitches, setPitches] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [recentChats, setRecentChats] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,17 +83,6 @@ export default function InvestorDashboard() {
     });
     return () => unsubscribe();
   }, [user, userData]);
-
-  /* ================= REAL-TIME NOTIFICATIONS ================= */
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "notifications"), where("userId", "==", user.uid), where("isRead", "==", false));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notificationList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setNotifications(notificationList);
-    });
-    return () => unsubscribe();
-  }, [user]);
 
   /* ================= REAL-TIME CHAT LISTENER ================= */
   useEffect(() => {
@@ -154,12 +143,9 @@ export default function InvestorDashboard() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>BusinessConnect</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.notifIcon} onPress={() => router.push("/investor/notifications")}>
-            <Ionicons name="notifications-outline" size={24} color="#064E3B" />
-            {notifications.length > 0 && (
-              <View style={styles.badge}><Text style={styles.badgeText}>{notifications.length}</Text></View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.notifIcon}>
+            <NotificationBell routePath="/investor/notifications" color="#064E3B" size={24} />
+          </View>
         </View>
       </View>
 

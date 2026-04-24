@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, doc, onSnapshot, orderBy, query, updateDoc, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 
@@ -65,6 +65,24 @@ export default function Notifications() {
     });
   };
 
+  const markAllAsRead = async () => {
+    const unread = notifications.filter((item) => isUnread(item));
+
+    if (unread.length === 0) {
+      return;
+    }
+
+    const batch = writeBatch(db);
+    unread.forEach((item) => {
+      batch.update(doc(db, 'notifications', item.id), {
+        isRead: true,
+        read: true,
+      });
+    });
+
+    await batch.commit();
+  };
+
   const renderItem = ({ item }) => {
     const unread = isUnread(item);
 
@@ -78,7 +96,12 @@ export default function Notifications() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.heading}>Notifications</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.heading}>Notifications</Text>
+        <TouchableOpacity onPress={markAllAsRead}>
+          <Text style={styles.markAll}>Mark all as read</Text>
+        </TouchableOpacity>
+      </View>
 
       {loading ? (
         <View style={styles.center}>
@@ -99,7 +122,18 @@ export default function Notifications() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC', padding: 16 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   heading: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 12 },
+  markAll: {
+    color: '#4F46E5',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingBottom: 24 },
   card: {
