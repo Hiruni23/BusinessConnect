@@ -12,6 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
+  onAuthStateChanged,
+} from 'firebase/auth';
+import {
   collection,
   query,
   where,
@@ -27,14 +30,28 @@ export default function StakeholderNotifications() {
   const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = auth.currentUser;
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid),
+      where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
 
@@ -51,7 +68,7 @@ export default function StakeholderNotifications() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
   const markAsRead = async (notificationId) => {
     try {
