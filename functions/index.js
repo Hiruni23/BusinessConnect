@@ -4,9 +4,62 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const templates = require("./emailTemplates");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const stripe = require("stripe")("sk_test_51TOKSuCDZMl8sA2g91wKmQS6m18tHCQKcb2NV3Iy7kI9maTwb8NzJsDFiy8uROS4aGoV76USDPG1IuSPJ2iVRv6b00keVElovj");
 
 admin.initializeApp();
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+/* =====================================================
+   0️⃣ Business AI Suite (Centralized AI Functions)
+===================================================== */
+
+// A. Chat Assistant
+exports.askBusinessAI = onCall(async (request) => {
+  const { prompt, pitchData } = request.data;
+  if (!prompt) throw new HttpsError("invalid-argument", "Prompt is required.");
+
+  try {
+    let context = "You are a senior business consultant. ";
+    if (pitchData) {
+      context += `\nContext: ${pitchData.title} - ${pitchData.description}\n`;
+    }
+    const result = await model.generateContent(`${context}\nUser: ${prompt}`);
+    return { text: result.response.text() };
+  } catch (error) {
+    throw new HttpsError("internal", "AI Service Error: " + error.message);
+  }
+});
+
+// B. Pitch Generator
+exports.generateAIPitch = onCall(async (request) => {
+  const { keywords } = request.data;
+  if (!keywords) throw new HttpsError("invalid-argument", "Keywords required.");
+
+  try {
+    const prompt = `Write a professional 3-paragraph investor pitch for: ${keywords}`;
+    const result = await model.generateContent(prompt);
+    return { text: result.response.text() };
+  } catch (error) {
+    throw new HttpsError("internal", "AI Generation Error.");
+  }
+});
+
+// C. Pitch Analyzer (Grader)
+exports.analyzePitch = onCall(async (request) => {
+  const { title, description, category } = request.data;
+  try {
+    const prompt = `Act as a VC. Analyze this pitch: ${title}\nCategory: ${category}\nDesc: ${description}\nReturn JSON: {score: 0-100, feedback: [], verdict: ""}`;
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(text);
+  } catch (error) {
+    throw new HttpsError("internal", "AI Analysis Error.");
+  }
+});
 
 /* =====================================================
    1️⃣ Notify Investors When Pitch Is Created

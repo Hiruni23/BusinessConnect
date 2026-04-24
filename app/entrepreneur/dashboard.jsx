@@ -118,6 +118,10 @@ export default function EntrepreneurDashboard() {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>BusinessConnect</Text>
           <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => router.push("/entrepreneur/messages")} style={styles.headerBtn}>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1E293B" />
+              {recentChats.some(c => c.isUnread) && <View style={styles.badgeDot} />}
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push("/entrepreneur/notifications")} style={styles.headerBtn}>
               <Ionicons name="notifications-outline" size={22} color="#1E293B" />
               {hasUnread && <View style={styles.badgeDot} />}
@@ -203,7 +207,9 @@ export default function EntrepreneurDashboard() {
           {/* RECENT MESSAGES */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Conversations</Text>
-            <TouchableOpacity><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push("/entrepreneur/messages")}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
           </View>
 
           {recentChats.length === 0 ? (

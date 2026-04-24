@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,68 +7,70 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  Dimensions,
+  Platform,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
+import { LinearGradient } from "expo-linear-gradient";
+import { BlurView } from "expo-blur";
 
-// Definining the 5 core strategic categories of funding
-const INVESTOR_CATEGORIES = [
-  {
-    id: "Angel",
-    title: "Angel Investors",
-    description: "High-net-worth individuals providing early-stage seed capital.",
-    icon: "flash-outline", // or 'rocket-outline'
-    color: "#F59E0B",
-  },
-  {
-    id: "VC",
-    title: "Venture Capital",
-    description: "Investment firms focusing on high-growth, scalable startups.",
-    icon: "business-outline",
-    color: "#3B82F6",
-  },
-  {
-    id: "P2P",
-    title: "P2P Lending",
-    description: "Debt-based funding sourced from individuals via platforms.",
-    icon: "swap-horizontal-outline",
-    color: "#10B981",
-  },
-  {
-    id: "Incubator",
-    title: "Incubators & Accelerators",
-    description: "Programs offering mentorship, resources, and seed investment.",
-    icon: "egg-outline",
-    color: "#8B5CF6",
-  },
-  {
-    id: "Crowdfund",
-    title: "Equity Crowdfunding",
-    description: "Raising small amounts of capital from a large group of people.",
-    icon: "people-outline",
-    color: "#EC4899",
-  },
+const { width, height } = Dimensions.get("window");
+
+const CATEGORIES = [
+  { id: "all", title: "All Categories", icon: "apps-outline", color: "#6366F1" },
+  { id: "Angel", title: "Angel Investors", icon: "flash-outline", color: "#F59E0B" },
+  { id: "VC", title: "Venture Capital", icon: "business-outline", color: "#3B82F6" },
+  { id: "P2P", title: "P2P Lending", icon: "swap-horizontal-outline", color: "#10B981" },
+  { id: "Incubator", title: "Incubators", icon: "egg-outline", color: "#8B5CF6" },
+  { id: "Crowdfund", title: "Crowdfunding", icon: "people-outline", color: "#EC4899" },
 ];
 
 export default function InvestorSelection() {
   const router = useRouter();
-  const [selected, setSelected] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedInvestorId, setSelectedInvestorId] = useState(null);
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [investors, setInvestors] = useState([]);
+  const [fetching, setFetching] = useState(true);
+
+  useEffect(() => {
+    fetchInvestors();
+  }, [selectedCategory]);
+
+  const fetchInvestors = async () => {
+    setFetching(true);
+    try {
+      let q = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
+      if (selectedCategory !== "all") {
+        q = query(collection(db, "users"), 
+          where("role", "in", ["investor", "Investor"]),
+          where("investorType", "==", selectedCategory)
+        );
+      }
+      const snapshot = await getDocs(q);
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInvestors(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace("/auth/role-selection");
+    router.replace("/entrepreneur/dashboard");
   };
 
   const handleContinue = async () => {
-    if (!selected) {
-      Alert.alert("Selection Required", "Please select a target investor category to continue.");
+    if (!selectedInvestorId && selectedCategory === "all") {
+      Alert.alert("Selection Required", "Please select an investor or a specific category.");
       return;
     }
 
@@ -76,144 +78,230 @@ export default function InvestorSelection() {
     try {
       const user = auth.currentUser;
       if (user) {
-        // Save the selection directly to the user's profile in Firestore
         await updateDoc(doc(db, "users", user.uid), {
-          investorType: selected,
-          targetInvestorCategory: selected,
-          onboardingStep: 'category-selection', // Helpful for session tracking
+          targetInvestorId: selectedInvestorId,
+          targetInvestorCategory: selectedCategory,
           updatedAt: new Date().toISOString(),
         });
-        
-        // Move to the next screen in the onboarding flow
         router.push("/auth/category-selection");
       }
     } catch (error) {
-      console.error("Firestore Update Error:", error);
-      Alert.alert("Error", "Failed to save your selection. Please check your connection.");
+      Alert.alert("Error", "Failed to save your selection.");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* HEADER WITH PROGRESS BAR */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { width: "66%" }]} />
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Target Investors</Text>
-        <Text style={styles.subtitle}>
-          Which category of investors best matches your current funding goals?
-        </Text>
-
-        <View style={styles.cardContainer}>
-          {INVESTOR_CATEGORIES.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              activeOpacity={0.8}
-              style={[
-                styles.card,
-                selected === category.id && { 
-                  borderColor: category.color,
-                  backgroundColor: category.color + "05" // super light tint
-                },
-              ]}
-              onPress={() => setSelected(category.id)}
+  const CategoryDropdown = () => (
+    <Modal visible={isDropdownVisible} transparent animationType="fade">
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={() => setIsDropdownVisible(false)}
+      >
+        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.dropdownContainer}>
+          <Text style={styles.dropdownTitle}>Select Category</Text>
+          {CATEGORIES.map((cat) => (
+            <TouchableOpacity 
+              key={cat.id} 
+              style={[styles.dropdownItem, selectedCategory === cat.id && styles.activeDropdownItem]}
+              onPress={() => {
+                setSelectedCategory(cat.id);
+                setIsDropdownVisible(false);
+              }}
             >
-              <View style={[styles.iconBox, { backgroundColor: category.color + "15" }]}>
-                <Ionicons name={category.icon} size={28} color={category.color} />
-              </View>
-              
-              <View style={styles.cardText}>
-                <Text style={styles.cardTitle}>{category.title}</Text>
-                <Text style={styles.cardDesc}>{category.description}</Text>
-              </View>
-              
-              {selected === category.id && (
-                <View style={[styles.selectedIndicator, { backgroundColor: category.color }]}>
-                  <Ionicons name="checkmark" size={14} color="white" />
-                </View>
-              )}
+              <Ionicons name={cat.icon} size={20} color={selectedCategory === cat.id ? "#fff" : "#64748B"} />
+              <Text style={[styles.dropdownText, selectedCategory === cat.id && styles.activeDropdownText]}>
+                {cat.title}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
-      </ScrollView>
+      </TouchableOpacity>
+    </Modal>
+  );
 
-      {/* ACTION FOOTER */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.continueButton, !selected && styles.continueButtonDisabled]}
-          onPress={handleContinue}
-          disabled={loading || !selected}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      <LinearGradient colors={['#FFFFFF', '#F8FAFC']} style={StyleSheet.absoluteFill} />
+      
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: '40%' }]} />
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
+          <Text style={styles.heroTitle}>Strategic Partner</Text>
+          <Text style={styles.heroSub}>Choose the expertise that will scale your innovation.</Text>
+
+          {/* CATEGORY SELECTOR (DROPDOWN TRIGGER) */}
+          <Text style={styles.sectionLabel}>INVESTOR SEGMENT</Text>
+          <TouchableOpacity 
+            style={styles.pickerTrigger} 
+            onPress={() => setIsDropdownVisible(true)}
+          >
+            <View style={styles.pickerContent}>
+              <Ionicons 
+                name={CATEGORIES.find(c => c.id === selectedCategory)?.icon || "apps-outline"} 
+                size={22} 
+                color="#4F46E5" 
+              />
+              <Text style={styles.pickerText}>
+                {CATEGORIES.find(c => c.id === selectedCategory)?.title}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={20} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <Text style={styles.sectionLabel}>
+            {selectedCategory === "all" ? "RECOMMENDED INVESTORS" : `${selectedCategory.toUpperCase()} INVESTORS`}
+          </Text>
+
+          {fetching ? (
+            <ActivityIndicator color="#4F46E5" style={{ marginTop: 40 }} />
+          ) : investors.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={48} color="#E2E8F0" />
+              <Text style={styles.emptyText}>No investors found in this category.</Text>
+            </View>
           ) : (
-            <>
-              <Text style={styles.continueText}>Continue</Text>
-              <Ionicons name="chevron-forward" size={20} color="white" />
-            </>
+            <View style={styles.investorGrid}>
+              {investors.map((investor) => (
+                <TouchableOpacity 
+                  key={investor.id} 
+                  style={[
+                    styles.investorCard,
+                    selectedInvestorId === investor.id && styles.activeCard
+                  ]}
+                  onPress={() => setSelectedInvestorId(investor.id)}
+                >
+                  <LinearGradient 
+                    colors={selectedInvestorId === investor.id ? ['#4F46E5', '#6366F1'] : ['#FFFFFF', '#F8FAFC']} 
+                    style={styles.cardGradient}
+                  >
+                    <View style={[styles.avatarCircle, selectedInvestorId === investor.id && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                      <Text style={[styles.avatarText, selectedInvestorId === investor.id && { color: '#fff' }]}>
+                        {investor.fullName?.charAt(0) || "I"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.investorName, selectedInvestorId === investor.id && { color: '#fff' }]} numberOfLines={1}>
+                      {investor.fullName || "Anonymous Investor"}
+                    </Text>
+                    <Text style={[styles.investorType, selectedInvestorId === investor.id && { color: 'rgba(255,255,255,0.8)' }]}>
+                      {investor.investorType || "Strategist"}
+                    </Text>
+                    
+                    {selectedInvestorId === investor.id && (
+                      <View style={styles.checkIcon}>
+                        <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                      </View>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            style={[styles.continueBtn, (!selectedInvestorId && selectedCategory === 'all') && styles.disabledBtn]} 
+            onPress={handleContinue}
+            disabled={loading || (!selectedInvestorId && selectedCategory === 'all')}
+          >
+            <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.btnGradient}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.continueText}>Confirm Strategic Choice</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      <CategoryDropdown />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
+  container: { flex: 1, backgroundColor: "#fff" },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15 },
+  backBtn: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
+  progressTrack: { flex: 1, height: 4, backgroundColor: '#F1F5F9', borderRadius: 2, marginHorizontal: 20 },
+  progressFill: { height: '100%', backgroundColor: '#4F46E5', borderRadius: 2 },
+  
+  scrollBody: { paddingHorizontal: 25, paddingBottom: 100 },
+  heroTitle: { fontSize: 32, fontWeight: '900', color: '#1E293B', marginTop: 20 },
+  heroSub: { fontSize: 16, color: '#64748B', marginTop: 8, lineHeight: 24 },
+  
+  sectionLabel: { fontSize: 11, fontWeight: '900', color: '#94A3B8', letterSpacing: 1.5, marginTop: 35, marginBottom: 15 },
+  
+  pickerTrigger: { 
+    height: 65, 
+    backgroundColor: '#fff', 
+    borderRadius: 20, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10
   },
-  backButton: { padding: 5 },
-  progressContainer: {
-    flex: 1,
-    height: 6,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 3,
-    marginLeft: 15,
+  pickerContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pickerText: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+
+  investorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 5 },
+  investorCard: { 
+    width: (width - 62) / 2, 
+    height: 160, 
+    borderRadius: 24, 
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10
   },
-  progressBar: { height: 6, backgroundColor: "#4F46E5", borderRadius: 3 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 30 },
-  title: { fontSize: 28, fontWeight: "800", color: "#111827", marginTop: 25 },
-  subtitle: { fontSize: 16, color: "#6B7280", marginTop: 8, marginBottom: 35 },
-  cardContainer: { gap: 16 },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: "#F9FAFB",
-  },
-  iconBox: { width: 52, height: 52, borderRadius: 16, justifyContent: "center", alignItems: "center" },
-  cardText: { flex: 1, marginLeft: 16, paddingRight: 10 },
-  cardTitle: { fontSize: 17, fontWeight: "700", color: "#1F2937" },
-  cardDesc: { fontSize: 13, color: "#6B7280", marginTop: 3 },
-  selectedIndicator: { width: 24, height: 24, borderRadius: 12, justifyContent: "center", alignItems: "center" },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: "#F3F4F6", backgroundColor: "#FFFFFF" },
-  continueButton: {
-    backgroundColor: "#4F46E5",
-    height: 56,
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
-  continueButtonDisabled: { backgroundColor: "#D1D5DB" },
-  continueText: { color: "white", fontSize: 18, fontWeight: "700" },
-});
+  cardGradient: { flex: 1, padding: 20, alignItems: 'center', justifyContent: 'center' },
+  activeCard: { borderColor: '#4F46E5' },
+  avatarCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  avatarText: { fontSize: 22, fontWeight: '900', color: '#4F46E5' },
+  investorName: { fontSize: 14, fontWeight: '800', color: '#1E293B' },
+  investorType: { fontSize: 11, color: '#94A3B8', marginTop: 4, fontWeight: '600' },
+  checkIcon: { position: 'absolute', top: 12, right: 12 },
+
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 25, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  continueBtn: { height: 60, borderRadius: 20, overflow: 'hidden' },
+  btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  continueText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  disabledBtn: { opacity: 0.5 },
+
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 20 },
+  dropdownContainer: { backgroundColor: '#fff', borderRadius: 32, padding: 25, elevation: 20 },
+  dropdownTitle: { fontSize: 12, fontWeight: '900', color: '#94A3B8', letterSpacing: 2, marginBottom: 20, textAlign: 'center' },
+  dropdownItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, paddingHorizontal: 20, borderRadius: 16, marginBottom: 8, gap: 12 },
+  activeDropdownItem: { backgroundColor: '#4F46E5' },
+  dropdownText: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  activeDropdownText: { color: '#fff' },
+  
+  emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.5 },
+  emptyText: { fontSize: 14, color: '#94A3B8', marginTop: 10, fontWeight: '600' }
+});
