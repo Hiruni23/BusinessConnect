@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from "react";
 import { db, auth } from "../../firebaseConfig";
 import AIChatModal from "../components/AIChatModal";
 import SideMenu from "../components/SideMenu";
+import NotificationBell from '../../components/NotificationBell';
 
 const { width } = Dimensions.get("window");
 
@@ -40,7 +41,6 @@ export default function EntrepreneurDashboard() {
   const [recentChats, setRecentChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [aiVisible, setAiVisible] = useState(false);
-  const [hasUnread, setHasUnread] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
 
@@ -70,9 +70,6 @@ export default function EntrepreneurDashboard() {
       } catch (error) { console.error(error); } finally { setLoading(false); }
     });
 
-    const qNotifs = query(collection(db, "notifications"), where("userId", "==", user.uid), where("isRead", "==", false));
-    const unsubNotifs = onSnapshot(qNotifs, (snapshot) => setHasUnread(!snapshot.empty));
-
     const mountedAt = new Date();
     const qLatestNotif = query(collection(db, "notifications"), where("userId", "==", user.uid), where("createdAt", ">", mountedAt), orderBy("createdAt", "desc"), limit(1));
     const unsubLatestNotif = onSnapshot(qLatestNotif, (snapshot) => {
@@ -94,7 +91,7 @@ export default function EntrepreneurDashboard() {
       setRecentChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isUnread: doc.data().unreadBy?.includes(user.uid) })));
     });
 
-    return () => { unsubPitches(); unsubNotifs(); unsubLatestNotif(); unsubChats(); };
+    return () => { unsubPitches(); unsubLatestNotif(); unsubChats(); };
   }, [user]);
 
   const handleLogout = async () => {
@@ -122,10 +119,9 @@ export default function EntrepreneurDashboard() {
               <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1E293B" />
               {recentChats.some(c => c.isUnread) && <View style={styles.badgeDot} />}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push("/entrepreneur/notifications")} style={styles.headerBtn}>
-              <Ionicons name="notifications-outline" size={22} color="#1E293B" />
-              {hasUnread && <View style={styles.badgeDot} />}
-            </TouchableOpacity>
+            <View style={styles.headerBtn}>
+              <NotificationBell routePath="/entrepreneur/notifications" color="#1E293B" size={22} />
+            </View>
             <TouchableOpacity onPress={() => router.push("/profile")} style={styles.headerBtn}>
               <Ionicons name="person-circle-outline" size={26} color="#1E293B" />
             </TouchableOpacity>
