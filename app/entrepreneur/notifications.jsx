@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAuth } from "firebase/auth";
+import { onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
   query, 
@@ -22,21 +22,34 @@ import {
   writeBatch,
   getDocs
 } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
+import { auth, db } from '../../firebaseConfig';
 
 export default function NotificationsScreen() {
-  const auth = getAuth();
-  const user = auth.currentUser;
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     // Real-time listener for current user's notifications
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid),
+      where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
 
@@ -50,7 +63,7 @@ export default function NotificationsScreen() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
   // Mark a single notification as read
   const markAsRead = async (id) => {

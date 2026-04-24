@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
 import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,14 +11,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function NotificationsCenter() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = auth.currentUser;
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", user.uid),
+      where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
 
@@ -31,7 +46,7 @@ export default function NotificationsCenter() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [userId]);
 
   const markAsRead = async (id) => {
     try {

@@ -165,6 +165,7 @@ export default function RootLayout() {
       const inOnboarding = firstSegment === "onboarding";
       const inEntrepreneur = firstSegment === "entrepreneur";
       const inChat = firstSegment === "chat";
+      const inProfile = firstSegment === "profile";
       const inSplash = segments.join("/") === "" || segments.join("/") === "index" || segments.join("/") === "splash";
 
       /* ===============================
@@ -207,7 +208,17 @@ export default function RootLayout() {
         =============================== */
         if (normalizedRole === "entrepreneur") {
           // Allow entrepreneur and chat segments
-          if (inEntrepreneur || inChat) {
+          if (inEntrepreneur || inChat || inProfile) {
+            setInitialRouteLoaded(true);
+            return;
+          }
+
+          const inInvestorSelection = segments.join("/") === "auth/investor-selection";
+          const inCategorySelection = segments.join("/") === "auth/category-selection";
+
+          // Allow optional entrepreneur setup flow from dashboard:
+          // Investor Selection -> Category Selection -> Create Pitch.
+          if (inInvestorSelection || inCategorySelection) {
             setInitialRouteLoaded(true);
             return;
           }
@@ -220,7 +231,7 @@ export default function RootLayout() {
 
         if (normalizedRole === "investor") {
           const inInvestor = firstSegment === "investor";
-          if (inInvestor || inChat) {
+          if (inInvestor || inChat || inProfile) {
             setInitialRouteLoaded(true);
             return;
           }
@@ -233,7 +244,7 @@ export default function RootLayout() {
         }
         if (normalizedRole === "customer") {
           const inCustomer = firstSegment === "customer";
-          if (inCustomer || inChat) {
+          if (inCustomer || inChat || inProfile) {
             setInitialRouteLoaded(true);
             return;
           }
