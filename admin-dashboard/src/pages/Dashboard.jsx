@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getAllProjects, testProjectsCollection } from '../services/projectService';
-import { getUsers } from '../services/userService';
+import { subscribeToAllProjects, testProjectsCollection } from '../services/projectService';
+import { subscribeToUsers } from '../services/userService';
 import Card from '../components/Card';
 import Table from '../components/Table';
 import Charts from '../components/Charts';
@@ -127,59 +127,80 @@ export default function Dashboard({ searchQuery = '' }) {
     roleData: [],
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    const run = async () => {
-      setLoading(true);
+    testProjectsCollection();
 
-      try {
-        testProjectsCollection();
-        const [projects, users] = await Promise.all([getAllProjects(), getUsers()]);
-        const pending = projects.filter((item) => ['open', 'pending'].includes(String(item.status).toLowerCase())).length;
-        const approved = projects.filter((item) => ['approved', 'accepted'].includes(String(item.status).toLowerCase())).length;
-        const rejected = projects.filter((item) => ['rejected', 'declined', 'flagged'].includes(String(item.status).toLowerCase())).length;
-
-        setStats({
-          users: users.length,
-          projects: projects.length,
-          pending,
-          reports: rejected,
-          approved,
-          rejected,
-        });
-
-        setChartData({
-          userGrowthData: buildUserGrowthData(users),
-          projectStatusData: buildProjectStatusData(projects),
-          roleData: buildRoleData(users),
-        });
-
-        const normalizedSearch = String(searchQuery).trim().toLowerCase();
-        const recent = projects
-          .slice(0, 7)
-          .filter((item) => {
-            if (!normalizedSearch) {
-              return true;
-            }
-
-            const title = String(item.title || item.name || '').toLowerCase();
-            const owner = String(item.ownerName || item.owner || item.createdByEmail || '').toLowerCase();
-            return title.includes(normalizedSearch) || owner.includes(normalizedSearch);
-          })
-          .map((item) => [
-            item.title || item.name || 'Untitled Project',
-            item.ownerName || item.owner || item.createdByEmail || 'Unknown Owner',
-            String(item.status || 'pending'),
-          ]);
-
-        setRecentRows(recent);
-      } finally {
-        setLoading(false);
+    const unsubProjects = subscribeToAllProjects((err, data) => {
+      if (err) {
+        setError('Failed to sync projects.');
+        return;
       }
-    };
+      setProjects(data);
+    });
 
-    run();
-  }, [searchQuery]);
+    const unsubUsers = subscribeToUsers((err, data) => {
+      if (err) {
+        setError('Failed to sync users.');
+        return;
+      }
+      setUsers(data);
+    });
+
+    return () => {
+      unsubProjects();
+      unsubUsers();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (projects.length === 0 && users.length === 0) {
+      return;
+    }
+
+    const pending = projects.filter((item) => ['open', 'pending'].includes(String(item.status).toLowerCase())).length;
+    const approved = projects.filter((item) => ['approved', 'accepted'].includes(String(item.status).toLowerCase())).length;
+    const rejected = projects.filter((item) => ['rejected', 'declined', 'flagged'].includes(String(item.status).toLowerCase())).length;
+
+    setStats({
+      users: users.length,
+      projects: projects.length,
+      pending,
+      reports: rejected,
+      approved,
+      rejected,
+    });
+
+    setChartData({
+      userGrowthData: buildUserGrowthData(users),
+      projectStatusData: buildProjectStatusData(projects),
+      roleData: buildRoleData(users),
+    });
+
+    const normalizedSearch = String(searchQuery).trim().toLowerCase();
+    const recent = projects
+      .filter((item) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        const title = String(item.title || item.name || '').toLowerCase();
+        const owner = String(item.ownerName || item.owner || item.createdByEmail || '').toLowerCase();
+        return title.includes(normalizedSearch) || owner.includes(normalizedSearch);
+      })
+      .slice(0, 7)
+      .map((item) => [
+        item.title || item.name || 'Untitled Project',
+        item.ownerName || item.owner || item.createdByEmail || 'Unknown Owner',
+        String(item.status || 'pending'),
+      ]);
+
+    setRecentRows(recent);
+    setLoading(false);
+  }, [projects, users, searchQuery]);
 
   return (
     <section className="page-card">
