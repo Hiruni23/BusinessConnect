@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -122,4 +123,23 @@ export async function getRecentNotifications(limitCount = 30) {
     id: item.id,
     ...item.data(),
   }));
+}
+
+export function subscribeToNotifications(callback, limitCount = 30) {
+  const q = query(notificationsCollection, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const data = snapshot.docs.slice(0, limitCount).map((item) => ({
+        id: item.id,
+        ...item.data(),
+      }));
+      callback(null, data);
+    },
+    (error) => {
+      console.error('Notifications subscription failed:', error);
+      callback(error);
+    },
+  );
 }
