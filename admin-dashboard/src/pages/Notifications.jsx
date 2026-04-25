@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Table from '../components/Table';
-import { getUsers } from '../services/userService';
+import { subscribeToUsers } from '../services/userService';
 import {
-  getRecentNotifications,
+  subscribeToNotifications,
   sendBroadcastNotification,
   sendNotification,
 } from '../services/notificationService';
@@ -53,34 +53,34 @@ export default function Notifications() {
     [users, userId],
   );
 
-  const loadUsers = async () => {
-    setLoadingUsers(true);
-
-    try {
-      const data = await getUsers();
-      setUsers(data);
-      if (!userId && data.length > 0) {
-        setUserId(data[0].id);
-      }
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const loadRecent = async () => {
-    setLoadingNotifications(true);
-
-    try {
-      const data = await getRecentNotifications(30);
-      setRecentNotifications(data);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  };
-
   useEffect(() => {
-    loadUsers();
-    loadRecent();
+    setLoadingUsers(true);
+    const unsubUsers = subscribeToUsers((err, data) => {
+      if (err) {
+        setErrorMessage('Failed to sync users.');
+      } else {
+        setUsers(data);
+        if (!userId && data.length > 0) {
+          setUserId(data[0].id);
+        }
+      }
+      setLoadingUsers(false);
+    });
+
+    setLoadingNotifications(true);
+    const unsubNotifications = subscribeToNotifications((err, data) => {
+      if (err) {
+        setErrorMessage('Failed to sync notifications.');
+      } else {
+        setRecentNotifications(data);
+      }
+      setLoadingNotifications(false);
+    });
+
+    return () => {
+      unsubUsers();
+      unsubNotifications();
+    };
   }, []);
 
   const handleSend = async (event) => {
@@ -117,7 +117,6 @@ export default function Notifications() {
 
       setTitle('');
       setMessage('');
-      await loadRecent();
     } catch (error) {
       setErrorMessage(error.message || 'Failed to send notification.');
     } finally {
