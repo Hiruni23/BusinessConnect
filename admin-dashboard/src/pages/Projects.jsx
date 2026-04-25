@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { auth } from '../firebase/firebaseConfig';
 import StatusBadge from '../components/StatusBadge';
 import Table from '../components/Table';
-import { getPendingProjects, updateProjectStatus } from '../services/projectService';
+import { subscribeToPendingProjects, updateProjectStatus } from '../services/projectService';
 import { sendProjectStatusNotification } from '../services/notificationService';
 
 export default function Projects({ searchQuery = '' }) {
@@ -11,22 +11,18 @@ export default function Projects({ searchQuery = '' }) {
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState('');
 
-  const loadProjects = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      const data = await getPendingProjects();
-      setProjects(data);
-    } catch (fetchError) {
-      setError(fetchError.message || 'Failed to load pending projects.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadProjects();
+    setLoading(true);
+    const unsubscribe = subscribeToPendingProjects((err, data) => {
+      if (err) {
+        setError(err.message || 'Failed to sync pending projects.');
+      } else {
+        setProjects(data);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleDecision = async (projectId, nextStatus) => {
@@ -59,7 +55,7 @@ export default function Projects({ searchQuery = '' }) {
         });
       }
 
-      setProjects((prev) => prev.filter((project) => project.id !== projectId));
+      // No need to manually filter projects here, the listener will handle it!
     } catch (updateError) {
       setError(updateError.message || 'Failed to update project status.');
     } finally {

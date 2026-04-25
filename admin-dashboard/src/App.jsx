@@ -6,21 +6,14 @@ import LoginForm from './components/LoginForm';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Projects from './pages/Projects';
+import Investments from './pages/Investments';
 import Reports from './pages/Reports';
 import Notifications from './pages/Notifications';
+import Settings from './pages/Settings';
+import Investors from './pages/Investors';
 import MainLayout from './layout/MainLayout';
 
-const tabs = ['Dashboard', 'Users', 'Projects', 'Reports', 'Notifications', 'Settings'];
-
-function Settings() {
-  return (
-    <section className="page-card">
-      <h3>Settings</h3>
-      <p>Configure admin dashboard preferences and organization-level controls.</p>
-      <div className="form-error">Settings panel is coming soon.</div>
-    </section>
-  );
-}
+const tabs = ['Dashboard', 'Users', 'Investors', 'Projects', 'Investments', 'Reports', 'Notifications', 'Settings'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -63,8 +56,16 @@ export default function App() {
       return Users;
     }
 
+    if (activeTab === 'Investors') {
+      return Investors;
+    }
+
     if (activeTab === 'Projects') {
       return Projects;
+    }
+
+    if (activeTab === 'Investments') {
+      return Investments;
     }
 
     if (activeTab === 'Reports') {

@@ -4,6 +4,7 @@ import {
   getDocs,
   orderBy,
   query,
+  onSnapshot,
   serverTimestamp,
   updateDoc,
   where,
@@ -49,4 +50,40 @@ export async function updateProjectStatus(projectId, status, adminUid) {
 
 export function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString()}`;
+}
+
+export function subscribeToAllProjects(callback) {
+  const q = query(pitchesCollection, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const data = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      callback(null, data);
+    },
+    (error) => {
+      console.error('Projects subscription failed:', error);
+      callback(error);
+    },
+  );
+}
+
+export function subscribeToPendingProjects(callback) {
+  const q = query(
+    pitchesCollection,
+    where('status', 'in', ['Open', 'pending']),
+    orderBy('createdAt', 'desc'),
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const data = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      callback(null, data);
+    },
+    (error) => {
+      console.error('Pending projects subscription failed:', error);
+      callback(error);
+    },
+  );
 }
