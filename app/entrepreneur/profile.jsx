@@ -47,6 +47,14 @@ export default function EntrepreneurProfile() {
         
         <Text style={styles.label}>Business Bio</Text>
         <TextInput style={[styles.input, { height: 100 }]} multiline value={userData.businessBio} onChangeText={(t) => setUserData({...userData, businessBio: t})} />
+
+        <TouchableOpacity 
+          style={styles.manageProductsBtn} 
+          onPress={() => router.push("/entrepreneur/manage-products")}
+        >
+          <Ionicons name="cube-outline" size={20} color="#FFF" />
+          <Text style={styles.manageProductsText}>Manage Marketplace Products</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -58,5 +66,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "bold", color: "#1E3A8A" },
   saveText: { color: "#1E3A8A", fontWeight: "bold" },
   label: { marginTop: 20, fontWeight: "600", color: "#4B5563" },
-  input: { backgroundColor: "#F3F4F6", padding: 15, borderRadius: 10, marginTop: 8 }
+  input: { backgroundColor: "#F3F4F6", padding: 15, borderRadius: 10, marginTop: 8 },
+  manageProductsBtn: { flexDirection: "row", backgroundColor: "#1E3A8A", padding: 15, borderRadius: 10, marginTop: 25, justifyContent: "center", alignItems: "center" },
+  manageProductsText: { color: "#FFF", fontWeight: "bold", marginLeft: 10 }
 });

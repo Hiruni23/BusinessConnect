@@ -6,10 +6,15 @@ import {
   FlatList, 
   TouchableOpacity, 
   ActivityIndicator,
-  Alert
+  StatusBar,
+  Dimensions,
+  Platform
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   collection, 
@@ -20,176 +25,196 @@ import {
   doc, 
   updateDoc,
   writeBatch,
-  getDocs
+  serverTimestamp
 } from "firebase/firestore";
 import { auth, db } from '../../firebaseConfig';
 
-export default function NotificationsScreen() {
+const { width } = Dimensions.get('window');
+
+export default function ProfessionalNotifications() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUserId(user?.uid || null);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
     });
-
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (!userId) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
 
-    setLoading(true);
-
-    // Real-time listener for current user's notifications
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", userId),
+      where("userId", "==", user.uid),
       orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = [];
-      snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() });
-      });
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setNotifications(list);
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [userId]);
+    return unsubscribe;
+  }, [user]);
 
-  // Mark a single notification as read
   const markAsRead = async (id) => {
     try {
-      const docRef = doc(db, "notifications", id);
-      await updateDoc(docRef, { isRead: true });
-    } catch (error) {
-      console.error("Error updating notification:", error);
-    }
+      await updateDoc(doc(db, "notifications", id), { isRead: true });
+    } catch (e) { console.error(e); }
   };
 
-  // Advanced: Mark all as read using Firestore Batches
   const markAllRead = async () => {
-    const unreadNotifications = notifications.filter(n => !n.isRead);
-    if (unreadNotifications.length === 0) return;
-
+    const unread = notifications.filter(n => !n.isRead);
+    if (unread.length === 0) return;
     try {
       const batch = writeBatch(db);
-      unreadNotifications.forEach((n) => {
-        const docRef = doc(db, "notifications", n.id);
-        batch.update(docRef, { isRead: true });
-      });
+      unread.forEach(n => batch.update(doc(db, "notifications", n.id), { isRead: true }));
       await batch.commit();
-    } catch (error) {
-      Alert.alert("Error", "Could not update all notifications.");
+    } catch (e) { console.error(e); }
+  };
+
+  const getIconConfig = (type) => {
+    switch (type?.toUpperCase()) {
+      case 'ACCEPTANCE': return { name: 'checkmark-circle', color: '#10B981', bg: '#D1FAE5' };
+      case 'REJECTION': return { name: 'close-circle', color: '#EF4444', bg: '#FEE2E2' };
+      case 'INVESTMENT': return { name: 'cash', color: '#4F46E5', bg: '#E0E7FF' };
+      case 'VIEW': return { name: 'eye', color: '#6366F1', bg: '#EEF2FF' };
+      case 'CHAT': return { name: 'chatbubbles', color: '#EC4899', bg: '#FCE7F3' };
+      default: return { name: 'notifications', color: '#64748B', bg: '#F1F5F9' };
     }
   };
 
-  const getIcon = (type) => {
-    switch (type) {
-      case 'view': return { name: 'eye-outline', color: '#2563EB' }; // Entrepreneur blue
-      case 'interest': return { name: 'heart-outline', color: '#EF4444' }; // Investor interest red
-      case 'system': return { name: 'shield-checkmark-outline', color: '#10B981' }; // Success green
-      default: return { name: 'notifications-outline', color: '#4B5563' };
-    }
+  const formatTime = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    const date = timestamp.toDate();
+    const now = new Date();
+    const diff = now - date;
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const renderItem = ({ item }) => {
-    const icon = getIcon(item.type);
-    
-    // Formatting timestamp for better readability
-    const timeDisplay = item.createdAt 
-      ? new Date(item.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' • ' + new Date(item.createdAt.seconds * 1000).toLocaleDateString()
-      : 'Just now';
-
+  const renderNotif = ({ item }) => {
+    const config = getIconConfig(item.type);
     return (
       <TouchableOpacity 
-        style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
+        style={[styles.notifCard, !item.isRead && styles.unreadCard]} 
         onPress={() => markAsRead(item.id)}
         activeOpacity={0.7}
       >
-        <View style={[styles.iconContainer, { backgroundColor: icon.color + '15' }]}>
-          <Ionicons name={icon.name} size={22} color={icon.color} />
+        <View style={[styles.iconBox, { backgroundColor: config.bg }]}>
+          <Ionicons name={config.name} size={22} color={config.color} />
         </View>
-        <View style={styles.textContainer}>
-          <Text style={[styles.notifTitle, !item.isRead && styles.unreadText]}>
-            {item.title}
-          </Text>
-          <Text style={styles.notifMessage} numberOfLines={2}>
-            {item.message}
-          </Text>
-          <Text style={styles.notifTime}>{timeDisplay}</Text>
+        <View style={styles.notifContent}>
+          <View style={styles.notifTop}>
+            <Text style={[styles.notifTitle, !item.isRead && styles.unreadTitle]}>{item.title || 'Notification'}</Text>
+            <Text style={styles.notifTime}>{formatTime(item.createdAt)}</Text>
+          </View>
+          <Text style={styles.notifMsg} numberOfLines={2}>{item.message}</Text>
+          {item.fromName && <Text style={styles.notifAuthor}>from {item.fromName}</Text>}
         </View>
-        {!item.isRead && <View style={styles.unreadDot} />}
+        {!item.isRead && <View style={styles.statusDot} />}
       </TouchableOpacity>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: "Notifications",
-          headerRight: () => (
-            <TouchableOpacity onPress={markAllRead} style={{ marginRight: 10 }}>
-              <Text style={styles.headerAction}>Mark all read</Text>
-            </TouchableOpacity>
-          ),
-        }} 
-      />
-      
-      {loading ? (
-        <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 50 }} />
-      ) : (
-        <FlatList
-          data={notifications}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
-              <Text style={styles.emptyText}>No notifications yet.</Text>
-            </View>
-          }
-        />
-      )}
+      <StatusBar barStyle="dark-content" />
+      <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={StyleSheet.absoluteFill} />
+
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* HEADER */}
+        <BlurView intensity={80} tint="light" style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#1E293B" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={styles.markAllText}>Clear All</Text>
+          </TouchableOpacity>
+        </BlurView>
+
+        {loading ? (
+          <View style={styles.center}><ActivityIndicator color="#4F46E5" size="large" /></View>
+        ) : (
+          <FlatList
+            data={notifications}
+            renderItem={renderNotif}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIconCircle}>
+                   <Ionicons name="notifications-off-outline" size={40} color="#94A3B8" />
+                </View>
+                <Text style={styles.emptyTitle}>All caught up!</Text>
+                <Text style={styles.emptySub}>We'll notify you when something important happens.</Text>
+              </View>
+            }
+          />
+        )}
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  headerAction: { color: '#2563EB', fontWeight: '600', fontSize: 14 },
-  listContent: { padding: 16 },
-  notificationCard: {
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  markAllText: { color: '#4F46E5', fontSize: 14, fontWeight: '700' },
+
+  listContainer: { padding: 20, paddingBottom: 50 },
+  notifCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     padding: 16,
-    borderRadius: 16,
     marginBottom: 12,
     alignItems: 'center',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  unreadCard: { backgroundColor: '#F0F7FF', borderColor: '#DBEAFE', borderWidth: 1 },
-  iconContainer: { padding: 10, borderRadius: 12, marginRight: 15 },
-  textContainer: { flex: 1 },
-  notifTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  unreadText: { fontWeight: '800' },
-  notifMessage: { fontSize: 13, color: '#4B5563', marginTop: 3, lineHeight: 18 },
-  notifTime: { fontSize: 11, color: '#9CA3AF', marginTop: 8 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2563EB', marginLeft: 10 },
-  emptyContainer: { alignItems: 'center', marginTop: 120 },
-  emptyText: { marginTop: 12, color: '#9CA3AF', fontSize: 16, fontWeight: '500' }
+  unreadCard: {
+    backgroundColor: '#F5F3FF',
+    borderColor: '#E0E7FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#4F46E5',
+  },
+  iconBox: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  notifContent: { flex: 1 },
+  notifTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  notifTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', flex: 1 },
+  unreadTitle: { color: '#1E293B' },
+  notifTime: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+  notifMsg: { fontSize: 13, color: '#64748B', lineHeight: 18 },
+  notifAuthor: { fontSize: 11, color: '#4F46E5', fontWeight: '700', marginTop: 4, textTransform: 'uppercase' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4F46E5', marginLeft: 10 },
+
+  emptyState: { alignItems: 'center', marginTop: 100, paddingHorizontal: 40 },
+  emptyIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
+  emptySub: { fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 8, lineHeight: 20 },
 });

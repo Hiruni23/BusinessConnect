@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { collection, query, where, onSnapshot, orderBy, getCountFromServer } from "firebase/firestore";
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from "../../firebaseConfig";
 
 export default function MyPitches() {
@@ -20,7 +21,17 @@ export default function MyPitches() {
   const [pitches, setPitches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const isApprovedStatus = (status) => ['approved', 'accepted'].includes(String(status || '').toLowerCase());
 
   useEffect(() => {
     if (!user) return;
@@ -43,7 +54,8 @@ export default function MyPitches() {
           list.map(async (pitch) => {
             const viewCountQuery = query(
               collection(db, "pitchViews"),
-              where("pitchId", "==", pitch.id)
+              where("pitchId", "==", pitch.id),
+              where("entrepreneurId", "==", user.uid)
             );
             const viewCountSnapshot = await getCountFromServer(viewCountQuery);
 
@@ -86,8 +98,8 @@ export default function MyPitches() {
             <Text style={styles.categoryText}>{item.category?.toUpperCase() || "STARTUP"}</Text>
             <Text style={styles.pitchTitle}>{item.title}</Text>
           </View>
-          <View style={[styles.statusChip, item.status === 'accepted' ? styles.chipAccepted : styles.chipOpen]}>
-            <Text style={[styles.statusText, item.status === 'accepted' ? styles.textAccepted : styles.textOpen]}>
+          <View style={[styles.statusChip, isApprovedStatus(item.status) ? styles.chipAccepted : styles.chipOpen]}>
+            <Text style={[styles.statusText, isApprovedStatus(item.status) ? styles.textAccepted : styles.textOpen]}>
               {item.status?.toUpperCase() || "OPEN"}
             </Text>
           </View>
