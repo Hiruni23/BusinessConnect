@@ -20,14 +20,20 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../../firebaseConfig";
 import { calculateMatchScore } from "../../utils/matchAlgorithm";
 import SideMenu from "../components/SideMenu";
 import NotificationBell from '../../components/NotificationBell';
 
-export default function InvestorDashboard() {
+const { width } = Dimensions.get('window');
+
+export default function LightInvestorDashboard() {
   const router = useRouter();
   const auth = getAuth();
   const user = auth.currentUser;
@@ -40,283 +46,281 @@ export default function InvestorDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* ================= FETCH USER DATA ================= */
+  /* ================= DATA FETCHING ================= */
   useEffect(() => {
     if (!user) return;
-    const fetchUserData = async () => {
-      try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setUserData({ ...userDoc.data(), email: user.email });
-        }
-      } catch (error) {
-        console.error("User Fetch Error:", error);
-      }
-    };
-    fetchUserData();
-  }, [user]);
+    
+    const unsubUser = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+      if (docSnap.exists()) setUserData({ ...docSnap.data(), email: user.email });
+    });
 
-  /* ================= REAL-TIME PITCH LISTENER ================= */
-  useEffect(() => {
-    if (!user) return;
     const qPitches = query(collection(db, "pitches"), where("status", "==", "Open"));
-    const unsubscribe = onSnapshot(qPitches, (snapshot) => {
+    const unsubPitches = onSnapshot(qPitches, (snapshot) => {
       const pitchList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
       const currentUserPrefs = {
         interests: userData?.interests || [],
-        maxInvestment:
-          typeof userData?.maxInvestment === "number"
-            ? userData.maxInvestment
-            : Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
+        maxInvestment: Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
       };
-
-      const sortedPitches = pitchList
-        .map((pitch) => ({
-          ...pitch,
-          matchScore: calculateMatchScore(pitch, currentUserPrefs),
-        }))
+      const sorted = pitchList
+        .map(p => ({ ...p, matchScore: calculateMatchScore(p, currentUserPrefs) }))
         .sort((a, b) => b.matchScore - a.matchScore);
-
-      setPitches(sortedPitches);
+      setPitches(sorted);
       setLoading(false);
     });
-    return () => unsubscribe();
-  }, [user, userData]);
 
-  /* ================= REAL-TIME CHAT LISTENER ================= */
-  useEffect(() => {
-    if (!user) return;
     const qChats = query(collection(db, "chats"), where("investorId", "==", user.uid), orderBy("updatedAt", "desc"));
-    const unsubscribe = onSnapshot(qChats, (snapshot) => {
-      const chatList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRecentChats(chatList);
-    }, (error) => {
-       console.error("Investor Chat Listener Error:", error);
-    });
-    return () => unsubscribe();
-  }, [user]);
+    const unsubChats = onSnapshot(qChats, (snap) => setRecentChats(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-  /* ================= REAL-TIME INVESTMENT HISTORY ================= */
-  useEffect(() => {
-    if (!user) return;
+    const qInvest = query(collection(db, "transactions"), where("investorId", "==", user.uid), orderBy("timestamp", "desc"));
+    const unsubInvest = onSnapshot(qInvest, (snap) => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
 
-    const qInvestments = query(
-      collection(db, "transactions"),
-      where("investorId", "==", user.uid),
-      orderBy("timestamp", "desc")
-    );
+    return () => { unsubUser(); unsubPitches(); unsubChats(); unsubInvest(); };
+  }, [user, userData?.interests]);
 
-    const unsubscribe = onSnapshot(qInvestments, (snapshot) => {
-      const investmentList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setInvestments(investmentList);
-    }, (error) => {
-      console.error("Investor Investment Listener Error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+  const totalInvested = investments.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+  const hasUnreadChat = recentChats.some(c => c.unreadBy?.includes(user?.uid));
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.replace("/auth/login");
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+    try { await signOut(auth); router.replace("/auth/login"); } catch (e) { console.error(e); }
   };
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
-  }, []);
-
-  // Calculate if there are any unread messages for the red dot in bottom nav
-  const hasUnreadChat = recentChats.some(chat => chat.unreadBy?.includes(user?.uid));
-  const totalInvested = investments.reduce((sum, investment) => sum + (Number(investment.amount) || 0), 0);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}>
-          <Ionicons name="menu-outline" size={28} color="#064E3B" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>BusinessConnect</Text>
-        <View style={styles.headerIcons}>
-          <View style={styles.notifIcon}>
-            <NotificationBell routePath="/investor/notifications" color="#064E3B" size={24} />
-          </View>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        <View style={styles.portfolioSummary}>
-          <View>
-            <Text style={styles.portfolioLabel}>My Portfolio</Text>
-            <Text style={styles.portfolioValue}>${totalInvested.toLocaleString()}</Text>
-          </View>
-          <TouchableOpacity style={styles.historyBtn} onPress={() => router.push("/investor/investment-history")}>
-            <Ionicons name="pie-chart" size={20} color="#4F46E5" />
-            <Text style={styles.historyBtnText}>Details</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* LIGHT HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.headerBtn}>
+            <Ionicons name="apps-outline" size={24} color="#1E293B" />
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.welcomeRow}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.welcomeName}>{userData?.fullName?.split(' ')[0] || "Investor"}</Text>
+          <View style={styles.brandContainer}>
+             <Text style={styles.brandText}>BusinessConnect</Text>
+             <View style={styles.proBadge}><Text style={styles.proText}>INVESTOR</Text></View>
           </View>
-          <View style={styles.roleBadge}>
-            <Ionicons name="trending-up" size={14} color="#047857" />
-            <Text style={styles.roleText}>INVESTOR</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <StatCard title="Pitches" value={pitches.length} />
-          <StatCard title="Interests" value={userData?.interestedCount || 0} />
-          <StatCard title="Portfolio" value={userData?.portfolioSize || 0} />
-        </View>
-
-        <Text style={styles.sectionTitle}>Recent Messages</Text>
-        {recentChats.length === 0 ? (
-          <Text style={styles.emptyTextMessages}>No active conversations.</Text>
-        ) : (
-          recentChats.slice(0, 3).map((chat) => (
-            <TouchableOpacity key={chat.id} style={styles.chatItem} onPress={() => router.push(`/chat/${chat.id}`)}>
-              <View style={styles.chatIconBg}>
-                <Ionicons name="chatbubble-ellipses" size={20} color="#047857" />
-                {chat.unreadBy?.includes(user.uid) && <View style={styles.unreadDot} />}
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.chatPitchTitle}>{chat.pitchTitle || "Pitch Inquiry"}</Text>
-                <Text style={styles.chatLastMsg} numberOfLines={1}>{chat.lastMessage}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          <View style={styles.headerIcons}>
+            <NotificationBell routePath="/investor/notifications" color="#1E293B" size={24} />
+            <TouchableOpacity onPress={() => router.push("/investor/profile")} style={[styles.headerBtn, {marginLeft: 10}]}>
+              <Ionicons name="person-circle-outline" size={26} color="#1E293B" />
             </TouchableOpacity>
-          ))
-        )}
-
-        <TouchableOpacity style={styles.ctaCard}>
-          <View>
-            <Text style={styles.ctaTitle}>Discover Startups</Text>
-            <Text style={styles.ctaSub}>Explore verified pitches and promising founders.</Text>
           </View>
-          <Ionicons name="search-circle" size={50} color="#D1FAE5" />
-        </TouchableOpacity>
+        </View>
 
-        <Text style={styles.sectionTitle}>Available Pitches</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#047857" style={{ marginTop: 20 }} />
-        ) : pitches.map((item) => (
-          <TouchableOpacity key={item.id} style={styles.listCard} activeOpacity={0.7} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: item.id } })}>
-            <View style={styles.listCardLeft}>
-              <View style={styles.categoryCircle}><Text style={styles.categoryInitial}>{item.category?.charAt(0)}</Text></View>
-              <View><Text style={styles.listTitle}>{item.title}</Text><Text style={styles.listSub}>{item.category}</Text></View>
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
+          {/* ENHANCED ASSETS SECTION */}
+          <View style={styles.assetsContainer}>
+            <Text style={styles.assetsTitle}>My Portfolio Overview</Text>
+            <View style={styles.assetsGrid}>
+              <View style={styles.mainAssetCard}>
+                <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.assetGradient}>
+                  <Text style={styles.assetLabel}>Total Committed</Text>
+                  <Text style={styles.assetValue}>${totalInvested.toLocaleString()}</Text>
+                  <TouchableOpacity style={styles.assetAction} onPress={() => router.push("/investor/investment-history")}>
+                    <Text style={styles.assetActionText}>History</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#FFF" />
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+              
+              <View style={styles.subAssetsColumn}>
+                <View style={styles.subAssetCard}>
+                  <Text style={styles.subAssetLabel}>Ventures</Text>
+                  <Text style={styles.subAssetValue}>{investments.length}</Text>
+                </View>
+                <View style={styles.subAssetCard}>
+                  <Text style={styles.subAssetLabel}>Interests</Text>
+                  <Text style={styles.subAssetValue}>{userData?.interestedCount || 0}</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.listCardRight}><Text style={styles.goalText}>${Number(item.fundingGoal).toLocaleString()}</Text><Ionicons name="chevron-forward" size={18} color="#94A3B8" /></View>
-          </TouchableOpacity>
-        ))}
-        <View style={{ height: 100 }} />
-      </ScrollView>
 
-      {/* Pass the unread status to Bottom Nav */}
-      <BottomNavigation router={router} hasUnreadChat={hasUnreadChat} />
+            {/* ADDITIONAL PORTFOLIO COMPONENTS */}
+            <View style={styles.miniStatsRow}>
+              <View style={styles.miniStat}>
+                <Ionicons name="time-outline" size={16} color="#6366F1" />
+                <Text style={styles.miniStatLabel}>Pending: $0</Text>
+              </View>
+              <View style={styles.miniStat}>
+                <Ionicons name="trending-up-outline" size={16} color="#10B981" />
+                <Text style={styles.miniStatLabel}>ROI: +12.4%</Text>
+              </View>
+              <View style={styles.miniStat}>
+                <Ionicons name="calendar-outline" size={16} color="#F59E0B" />
+                <Text style={styles.miniStatLabel}>Meetings: 2</Text>
+              </View>
+            </View>
+          </View>
 
+          {/* MAIN PITCH LIST */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Market Opportunities</Text>
+              <TouchableOpacity><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+            </View>
+
+            {loading ? (
+              <ActivityIndicator color="#4F46E5" style={{ marginTop: 20 }} />
+            ) : pitches.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="cube-outline" size={48} color="#CBD5E1" />
+                <Text style={styles.emptyText}>No new pitches available</Text>
+              </View>
+            ) : (
+              pitches.map(pitch => <OpportunityCard key={pitch.id} pitch={pitch} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })} />)
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+
+      <LightBottomNav router={router} hasUnread={hasUnreadChat} />
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} userData={userData} onLogout={handleLogout} router={router} />
-    </SafeAreaView>
+    </View>
   );
 }
 
-/* ================= COMPONENTS ================= */
+const QuickAction = ({ icon, label, onPress, color, badge }) => (
+  <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
+    <View style={[styles.actionIcon, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={22} color={color} />
+      {badge && <View style={styles.actionBadge} />}
+    </View>
+    <Text style={styles.actionLabel}>{label}</Text>
+  </TouchableOpacity>
+);
 
-const BottomNavigation = ({ router, hasUnreadChat }) => (
-  <View style={styles.bottomNav}>
-    <TouchableOpacity style={styles.navItem} onPress={() => router.push("/investor/dashboard")}><Ionicons name="home" size={24} color="#047857" /></TouchableOpacity>
-    <TouchableOpacity style={styles.navItem} onPress={() => router.push("/investor/portfolio")}><Ionicons name="briefcase-outline" size={24} color="#94A3B8" /></TouchableOpacity>
-    <TouchableOpacity style={styles.fab} onPress={() => Alert.alert("Search", "Opening filters...")}><Ionicons name="filter" size={26} color="#FFFFFF" /></TouchableOpacity>
-    
-    {/* CHAT ICON WITH DYNAMIC BADGE */}
-    <TouchableOpacity style={styles.navItem} onPress={() => router.push("/investor/inbox")}>
-      <View>
-        <Ionicons name="chatbubble-outline" size={24} color="#94A3B8" />
-        {hasUnreadChat && <View style={styles.navBadgeDot} />}
+const OpportunityCard = ({ pitch, onPress }) => {
+  const matchColor = pitch.matchScore > 80 ? '#10B981' : pitch.matchScore > 50 ? '#6366F1' : '#94A3B8';
+  const progress = Math.min((pitch.raisedAmount || 0) / (pitch.fundingGoal || 1), 1);
+
+  return (
+    <TouchableOpacity style={styles.oCard} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.oCardTop}>
+        <View style={styles.oCardInfo}>
+          <Text style={styles.oCategory}>{pitch.category?.toUpperCase() || "TECH"}</Text>
+          <Text style={styles.oTitle}>{pitch.title}</Text>
+        </View>
+        <View style={[styles.matchIndicator, { borderColor: matchColor }]}>
+           <Text style={[styles.matchPct, { color: matchColor }]}>{pitch.matchScore}%</Text>
+        </View>
+      </View>
+      
+      <View style={styles.progressSection}>
+         <View style={styles.progressRow}>
+            <Text style={styles.progressLabel}>Funding Progress</Text>
+            <Text style={styles.progressPct}>{Math.round(progress * 100)}%</Text>
+         </View>
+         <View style={styles.progressBarBg}>
+            <View style={[styles.progressBarFill, { width: `${progress * 100}%`, backgroundColor: matchColor }]} />
+         </View>
+      </View>
+
+      <View style={styles.oCardFooter}>
+        <View>
+          <Text style={styles.oStatLabel}>Target Goal</Text>
+          <Text style={styles.oStatValue}>${Number(pitch.fundingGoal).toLocaleString()}</Text>
+        </View>
+        <TouchableOpacity style={styles.viewBtn} onPress={onPress}>
+          <Text style={styles.viewBtnText}>Analyze</Text>
+          <Ionicons name="chevron-forward" size={14} color="#4F46E5" />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
+  );
+};
 
-    <TouchableOpacity style={styles.navItem} onPress={() => router.push("/investor/profile")}><Ionicons name="person-outline" size={24} color="#94A3B8" /></TouchableOpacity>
-  </View>
+const LightBottomNav = ({ router, hasUnread }) => (
+  <BlurView intensity={90} tint="light" style={styles.bottomNav}>
+    <NavIcon icon="grid" active onPress={() => router.push("/investor/dashboard")} />
+    <NavIcon icon="briefcase" onPress={() => router.push("/investor/portfolio")} />
+    <TouchableOpacity style={styles.mainAction} onPress={() => Alert.alert("Search", "Refining market view...")}>
+      <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.mainActionGradient}>
+        <Ionicons name="search" size={24} color="#FFF" />
+      </LinearGradient>
+    </TouchableOpacity>
+    <NavIcon icon="chatbubbles" badge={hasUnread} onPress={() => router.push("/investor/inbox")} />
+    <NavIcon icon="person" onPress={() => router.push("/investor/profile")} />
+  </BlurView>
 );
 
-const StatCard = ({ title, value }) => (
-  <View style={styles.statCard}><Text style={styles.statValue}>{value}</Text><Text style={styles.statLabel}>{title}</Text></View>
+const NavIcon = ({ icon, active, onPress, badge }) => (
+  <TouchableOpacity onPress={onPress} style={styles.navIconBtn}>
+    <Ionicons name={active ? icon : icon + "-outline"} size={24} color={active ? "#4F46E5" : "#94A3B8"} />
+    {badge && <View style={styles.navBadge} />}
+    {active && <View style={styles.navDot} />}
+  </TouchableOpacity>
 );
 
-/* ================= STYLES ================= */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 15, backgroundColor: "#DCFCE7", justifyContent: "space-between", borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  headerTitle: { fontSize: 20, fontWeight: "900", color: "#064E3B" },
-  headerIcons: { flexDirection: "row", alignItems: "center" },
-  notifIcon: { position: "relative", padding: 5 },
-  badge: { position: "absolute", top: 0, right: 0, backgroundColor: "#EF4444", borderRadius: 10, minWidth: 18, height: 18, justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#DCFCE7" },
-  badgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "800" },
-  portfolioSummary: {
-    backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#4F46E5',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  portfolioLabel: { color: '#64748B', fontSize: 12, fontWeight: '600' },
-  portfolioValue: { fontSize: 24, fontWeight: '800', color: '#1E293B', marginTop: 2 },
-  historyBtn: { backgroundColor: '#EEF2FF', padding: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center' },
-  historyBtnText: { color: '#4F46E5', fontWeight: '700', marginLeft: 5, fontSize: 12 },
-  welcomeRow: { flexDirection: "row", justifyContent: "space-between", padding: 20, alignItems: "center" },
-  welcomeText: { fontSize: 14, color: "#64748B", fontWeight: "500" },
-  welcomeName: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
-  roleBadge: { flexDirection: "row", backgroundColor: "#D1FAE5", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignItems: "center", gap: 6 },
-  roleText: { fontSize: 12, fontWeight: "800", color: "#047857" },
-  statsRow: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, marginBottom: 10 },
-  statCard: { backgroundColor: "#FFFFFF", borderRadius: 20, padding: 16, width: "30%", alignItems: "center", elevation: 4, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10 },
-  statValue: { fontSize: 20, fontWeight: "900", color: "#047857" },
-  statLabel: { fontSize: 12, color: "#64748B", fontWeight: "600", marginTop: 2 },
-  chatItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: 20, padding: 16, borderRadius: 20, marginBottom: 8, elevation: 3 },
-  chatIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  unreadDot: { position: 'absolute', top: -2, right: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#FFFFFF' },
-  chatPitchTitle: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
-  chatLastMsg: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  emptyTextMessages: { marginHorizontal: 20, color: "#94A3B8", fontWeight: "500" },
-  ctaCard: { backgroundColor: "#047857", marginHorizontal: 20, borderRadius: 24, padding: 20, marginTop: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  ctaTitle: { fontSize: 20, fontWeight: "800", color: "#FFFFFF" },
-  ctaSub: { fontSize: 14, color: "#D1FAE5", marginTop: 4, width: '80%' },
-  sectionTitle: { fontSize: 18, fontWeight: "900", margin: 20, color: "#0F172A" },
-  listCard: { backgroundColor: "#FFFFFF", marginHorizontal: 20, borderRadius: 20, padding: 16, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
-  listCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  categoryCircle: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F0FDF4', alignItems: 'center', justifyContent: 'center' },
-  categoryInitial: { fontSize: 18, fontWeight: '800', color: '#047857' },
-  listTitle: { fontSize: 16, fontWeight: "800", color: "#1E293B" },
-  listSub: { fontSize: 13, color: "#64748B", fontWeight: '500' },
-  listCardRight: { alignItems: 'flex-end', gap: 4 },
-  goalText: { fontSize: 15, fontWeight: '800', color: '#047857' },
-  bottomNav: { position: "absolute", bottom: 0, left: 0, right: 0, height: 80, backgroundColor: "#FFFFFF", flexDirection: "row", justifyContent: "space-around", alignItems: "center", borderTopWidth: 1, borderColor: "#F1F5F9", paddingBottom: 15 },
-  navItem: { padding: 10 },
-  fab: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#047857", alignItems: "center", justifyContent: "center", marginBottom: 40, elevation: 8 },
-  navBadgeDot: {
-    position: 'absolute',
-    right: -2,
-    top: -2,
-    backgroundColor: '#EF4444',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#EEF2FF' }, // Soft blue tint background
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#FFF' },
+  headerBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#E2E8F0' },
+  brandContainer: { alignItems: 'center' },
+  brandText: { fontSize: 18, fontWeight: '900', color: '#1E293B' },
+  proBadge: { backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, marginTop: 2 },
+  proText: { fontSize: 9, fontWeight: '900', color: '#4F46E5', letterSpacing: 0.5 },
+  headerIcons: { flexDirection: 'row', alignItems: 'center' },
+
+  assetsContainer: { padding: 20 },
+  assetsTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 15 },
+  assetsGrid: { flexDirection: 'row', gap: 12 },
+  mainAssetCard: { flex: 1.5, height: 160, borderRadius: 28, overflow: 'hidden', elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.2, shadowRadius: 15 },
+  assetGradient: { flex: 1, padding: 20, justifyContent: 'space-between' },
+  assetLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600' },
+  assetValue: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+  assetAction: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  assetActionText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+
+  subAssetsColumn: { flex: 1, gap: 12 },
+  subAssetCard: { flex: 1, backgroundColor: '#FFF', borderRadius: 24, padding: 15, justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  subAssetLabel: { color: '#94A3B8', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  subAssetValue: { color: '#1E293B', fontSize: 18, fontWeight: '900', marginTop: 4 },
+
+  miniStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, gap: 10 },
+  miniStat: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF', padding: 12, borderRadius: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  miniStatLabel: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+
+  section: { marginTop: 10, paddingHorizontal: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginBottom: 15 },
+  seeAll: { color: '#4F46E5', fontSize: 13, fontWeight: '700' },
+  
+  oCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 20, marginBottom: 16, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, borderLeftWidth: 4 },
+  oCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  oCardInfo: { flex: 1 },
+  oCategory: { fontSize: 10, fontWeight: '800', color: '#6366F1', letterSpacing: 1 },
+  oTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', marginTop: 4 },
+  matchIndicator: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  matchPct: { fontSize: 12, fontWeight: '900' },
+  
+  progressSection: { marginBottom: 20 },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  progressLabel: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  progressPct: { fontSize: 12, color: '#1E293B', fontWeight: '800' },
+  progressBarBg: { height: 6, backgroundColor: '#F1F5F9', borderRadius: 3, overflow: 'hidden' },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+
+  oCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F8FAFC', paddingTop: 15 },
+  oStatLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+  oStatValue: { fontSize: 16, fontWeight: '800', color: '#1E293B', marginTop: 2 },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  viewBtnText: { color: '#4F46E5', fontSize: 13, fontWeight: '700', marginRight: 4 },
+
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 90, flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingBottom: 25, borderTopWidth: 1, borderColor: '#F1F5F9', backgroundColor: 'rgba(255,255,255,0.95)' },
+  navIconBtn: { width: 50, height: 50, justifyContent: 'center', alignItems: 'center' },
+  navDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 },
+  navBadge: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#FFF' },
+  mainAction: { width: 56, height: 56, borderRadius: 28, marginTop: -35, elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.3, shadowRadius: 10 },
+  mainActionGradient: { flex: 1, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
+
+  emptyState: { padding: 40, alignItems: 'center' },
+  emptyText: { color: '#94A3B8', fontWeight: '600', marginTop: 10 }
 });
