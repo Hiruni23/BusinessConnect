@@ -13,15 +13,16 @@ service cloud.firestore {
     }
 
     function userRole() {
-      // Use getAfter if you're updating the role in the same transaction, 
-      // but standard get is best for read-time RBAC.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
+        : null;
     }
 
     function isRole(role) {
-      // Allow both 'Stakeholder' and 'stakeholder' (case-insensitive check)
-      let r = userRole();
-      return signedIn() && (r == role || r == role.lower());
+      return signedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.lower() == role.lower();
     }
 
     function isStakeholder() {
@@ -36,12 +37,15 @@ service cloud.firestore {
       return isRole('Investor');
     }
 
+    function isAdmin() {
+      return isRole('Admin');
+    }
+
     function isChatParticipant(chatId) {
-      let chat = get(/databases/$(database)/documents/chats/$(chatId)).data;
       return signedIn() && (
-        (chat.participants is list && request.auth.uid in chat.participants) ||
-        chat.investorId == request.auth.uid ||
-        chat.entrepreneurId == request.auth.uid
+        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants ||
+        get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid ||
+        get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid
       );
     }
 
@@ -57,7 +61,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if signedIn();
-      allow create, update: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
     match /pitches/{pitchId} {
@@ -67,6 +71,7 @@ service cloud.firestore {
         isOwner(resource.data.userId) || isOwner(resource.data.entrepreneurId)
         || isInvestor() // Investors can express interest (updates raisedAmount/interested)
         || isStakeholder() // Stakeholders update vetting status
+        || isAdmin()
       );
     }
 
@@ -76,7 +81,7 @@ service cloud.firestore {
       allow create: if isEntrepreneur();
       allow update: if signedIn() && (
         (isEntrepreneur() && resource.data.entrepreneurId == request.auth.uid) ||
-        isStakeholder()
+        isStakeholder() || isAdmin()
       );
     }
 
@@ -95,9 +100,14 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid || isAdmin());
       allow create: if signedIn();
-      allow update: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid);
+      allow update: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid || isAdmin());
+    }
+
+    match /system_settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
 
     match /pitchViews/{viewId} {
@@ -125,6 +135,38 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid
       );
       allow create: if isInvestor();
+    }
+
+    match /investments/{investmentId} {
+      allow read: if signedIn() && (
+        resource.data.investorId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isInvestor();
+      allow update: if isAdmin();
+    }
+
+    match /wallets/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if signedIn();
+      allow update: if isAdmin() || isOwner(userId);
+    }
+
+    match /products/{productId} {
+      allow read: if signedIn();
+      allow create: if isEntrepreneur() || isAdmin();
+      allow update: if signedIn() && (isAdmin() || isOwner(resource.data.sellerId));
+    }
+
+    match /cart/{cartId} {
+      allow read, write: if isOwner(cartId);
+    }
+
+    match /orders/{orderId} {
+      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if signedIn();
+      allow update: if isAdmin();
     }
 
     // --- CATCH ALL ---
