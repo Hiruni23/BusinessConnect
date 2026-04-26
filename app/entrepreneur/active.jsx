@@ -12,36 +12,47 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { collection, query, where, onSnapshot, getCountFromServer } from "firebase/firestore";
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from "../../firebaseConfig";
 
 export default function ActivePitches() {
   const router = useRouter();
   const [activePitches, setActivePitches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
 
-    // Fetch ONLY pitches where status is "Open"
+    // Fetch active pitches where status is not finalized.
     const q = query(
       collection(db, "pitches"),
-      where("entrepreneurId", "==", user.uid),
-      where("status", "==", "Open")
+      where("entrepreneurId", "==", user.uid)
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       try {
-        const list = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const list = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((pitch) => ['open', 'pending', 'in review', 'review'].includes(String(pitch.status || '').toLowerCase()));
 
         const listWithViewCounts = await Promise.all(
           list.map(async (pitch) => {
             const viewCountQuery = query(
               collection(db, "pitchViews"),
-              where("pitchId", "==", pitch.id)
+              where("pitchId", "==", pitch.id),
+              where("entrepreneurId", "==", user.uid)
             );
             const viewCountSnapshot = await getCountFromServer(viewCountQuery);
 
