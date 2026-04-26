@@ -34,7 +34,12 @@ export default function AdvancedAnalytics() {
         const myPitchId = pitchSnap.docs[0].id;
 
         // Fetch List
-        const vQuery = query(collection(db, "pitchViews"), where("pitchId", "==", myPitchId), orderBy("viewedAt", "desc"));
+        const vQuery = query(
+          collection(db, "pitchViews"), 
+          where("pitchId", "==", myPitchId), 
+          where("entrepreneurId", "==", user.uid),
+          orderBy("viewedAt", "desc")
+        );
         const vSnap = await getDocs(vQuery);
         const fetchedViews = vSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setViews(fetchedViews);
