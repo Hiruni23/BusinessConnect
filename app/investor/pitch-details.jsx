@@ -27,44 +27,36 @@ export default function PitchDetails() {
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
-    const recordView = async () => {
-      if (!user || !id) return;
-
-      try {
-        // Passive analytics tracking
-        await addDoc(collection(db, "pitchViews"), {
-          pitchId: id,
-          investorId: user.uid,
-          investorName: user.displayName || "Interested Investor",
-          viewedAt: serverTimestamp(),
-          type: "view",
-        });
-        console.log("Analytics: View recorded for pitch ID:", id);
-      } catch (error) {
-        console.error("Error saving view record:", error);
-      }
-    };
-
-    recordView();
-  }, [id]);
-
-  useEffect(() => {
     if (id) {
-      const fetchPitch = async () => {
+      const fetchAndRecord = async () => {
         try {
           const snap = await getDoc(doc(db, "pitches", id));
           if (snap.exists()) {
-            setPitch({ id: snap.id, ...snap.data() });
+            const pitchData = { id: snap.id, ...snap.data() };
+            setPitch(pitchData);
+
+            // Record view with entrepreneurId for proper security rule matching
+            if (user && pitchData.entrepreneurId) {
+              await addDoc(collection(db, "pitchViews"), {
+                pitchId: id,
+                entrepreneurId: pitchData.entrepreneurId,
+                investorId: user.uid,
+                investorName: user.displayName || "Interested Investor",
+                viewedAt: serverTimestamp(),
+                type: "view",
+              });
+              console.log("Analytics: View recorded with entrepreneur context");
+            }
           }
         } catch (error) {
-          console.error("Fetch Error:", error);
+          console.error("Fetch/Record Error:", error);
         } finally {
           setLoading(false);
         }
       };
-      fetchPitch();
+      fetchAndRecord();
     }
-  }, [id]);
+  }, [id, user]);
 
   /* ================= CHAT LOGIC ================= */
   const startChat = async () => {
