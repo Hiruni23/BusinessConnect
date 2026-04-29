@@ -157,6 +157,7 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isEntrepreneur() || isAdmin();
       allow update: if signedIn() && (isAdmin() || isOwner(resource.data.sellerId));
+      allow delete: if isAdmin() || isOwner(resource.data.sellerId);
     }
 
     match /cart/{cartId} {
@@ -167,6 +168,12 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if signedIn();
       allow update: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && (isAdmin() || isOwner(resource.data.userId));
     }
 
     // --- CATCH ALL ---
