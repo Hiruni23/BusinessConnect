@@ -50,12 +50,24 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="marketplace"
         options={{
-          title: "Explore",
+          title: "Market",
           tabBarIcon: ({ color, focused }) => (
             <View style={{ alignItems: 'center' }}>
-              <Ionicons name={focused ? "search" : "search-outline"} size={24} color={color} />
+              <Ionicons name={focused ? "cube" : "cube-outline"} size={24} color={color} />
+              {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 }} />}
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: "Cart",
+          tabBarIcon: ({ color, focused }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name={focused ? "cart" : "cart-outline"} size={24} color={color} />
               {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 }} />}
             </View>
           ),
@@ -64,27 +76,16 @@ export default function CustomerLayout() {
       <Tabs.Screen
         name="orders"
         options={{
-          title: "Portfolio",
+          title: "Orders",
           tabBarIcon: ({ color, focused }) => (
             <View style={{ alignItems: 'center' }}>
-              <Ionicons name={focused ? "wallet" : "wallet-outline"} size={24} color={color} />
+              <Ionicons name={focused ? "receipt" : "receipt-outline"} size={24} color={color} />
               {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 }} />}
             </View>
           ),
         }}
       />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: "Activity",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name={focused ? "notifications" : "notifications-outline"} size={24} color={color} />
-              {focused && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 }} />}
-            </View>
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="profile"
         options={{
@@ -97,12 +98,19 @@ export default function CustomerLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="ar-view"
-        options={{
-          href: null,
-        }}
-      />
+      
+      {/* HIDDEN UTILITY SCREENS */}
+      <Tabs.Screen name="notifications" options={{ href: null }} />
+      <Tabs.Screen name="personal-info" options={{ href: null }} />
+      <Tabs.Screen name="security" options={{ href: null }} />
+      <Tabs.Screen name="support" options={{ href: null }} />
+      <Tabs.Screen name="service-details" options={{ href: null }} />
+      <Tabs.Screen name="ar-view" options={{ href: null }} />
+      <Tabs.Screen name="terms" options={{ href: null }} />
+      <Tabs.Screen name="privacy" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="checkout" options={{ href: null }} />
+      <Tabs.Screen name="innovation-details" options={{ href: null }} />
     </Tabs>
   );
 }
