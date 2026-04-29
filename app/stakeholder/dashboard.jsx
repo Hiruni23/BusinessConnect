@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { auth, db } from "../../firebaseConfig";
-import { signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useEffect, useState, useMemo } from "react";
 import {
   doc,
@@ -35,7 +35,7 @@ const { width } = Dimensions.get("window");
 
 export default function StakeholderDashboard() {
   const router = useRouter();
-  const user = auth.currentUser;
+  const [user, setUser] = useState(auth.currentUser);
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -45,6 +45,18 @@ export default function StakeholderDashboard() {
   const [hasUnread, setHasUnread] = useState(false);
   const [milestonesToReview, setMilestonesToReview] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setUserData(null);
+        setIsLoading(false);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -66,20 +78,25 @@ export default function StakeholderDashboard() {
   useEffect(() => {
     if (!user || !userData) return;
 
+    const handleSnapshotError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setIsLoading(false);
+    };
+
     const unsubProjects = onSnapshot(query(collection(db, "pitches"), where("status", "in", ["accepted", "funded", "active"])), (snapshot) => {
         setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setIsLoading(false);
-    });
+    }, (error) => handleSnapshotError("Projects", error));
 
     const unsubPulse = onSnapshot(query(collection(db, "milestones"), orderBy("updatedAt", "desc"), limit(4)), (snapshot) => {
         setUpcomingMilestones(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleSnapshotError("Milestones pulse", error));
 
-    const unsubNotifs = onSnapshot(query(collection(db, "notifications"), where("userId", "==", user.uid), where("isRead", "==", false)), (snapshot) => setHasUnread(!snapshot.empty));
+    const unsubNotifs = onSnapshot(query(collection(db, "notifications"), where("userId", "==", user.uid), where("isRead", "==", false)), (snapshot) => setHasUnread(!snapshot.empty), (error) => handleSnapshotError("Notifications", error));
 
-    const unsubMeetings = onSnapshot(query(collection(db, "meetings"), where("stakeholderId", "==", user.uid)), (snapshot) => setMeetingsCount(snapshot.docs.filter(d => d.data().status === "scheduled").length));
+    const unsubMeetings = onSnapshot(query(collection(db, "meetings"), where("stakeholderId", "==", user.uid)), (snapshot) => setMeetingsCount(snapshot.docs.filter(d => d.data().status === "scheduled").length), (error) => handleSnapshotError("Meetings", error));
 
-    const unsubReview = onSnapshot(query(collection(db, "milestones"), where("status", "==", "completed")), (snapshot) => setMilestonesToReview(snapshot.size));
+    const unsubReview = onSnapshot(query(collection(db, "milestones"), where("status", "==", "completed")), (snapshot) => setMilestonesToReview(snapshot.size), (error) => handleSnapshotError("Milestones review", error));
 
     return () => { unsubProjects(); unsubPulse(); unsubNotifs(); unsubMeetings(); unsubReview(); };
   }, [user, userData]);

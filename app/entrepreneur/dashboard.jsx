@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -35,7 +36,7 @@ const { width } = Dimensions.get("window");
 
 export default function EntrepreneurDashboard() {
   const router = useRouter();
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
   
   const [pitches, setPitches] = useState([]);
   const [recentChats, setRecentChats] = useState([]);
@@ -43,6 +44,16 @@ export default function EntrepreneurDashboard() {
   const [aiVisible, setAiVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const isOpenStatus = (status) => ['open', 'pending', 'in review', 'review'].includes(String(status || '').toLowerCase());
 
   useEffect(() => {
     if (!user) return;
@@ -61,7 +72,11 @@ export default function EntrepreneurDashboard() {
         const pitchList = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }));
         const pitchesWithViewCounts = await Promise.all(
           pitchList.map(async (pitch) => {
-            const viewQuery = query(collection(db, "pitchViews"), where("pitchId", "==", pitch.id));
+            const viewQuery = query(
+              collection(db, "pitchViews"), 
+              where("pitchId", "==", pitch.id),
+              where("entrepreneurId", "==", user.uid)
+            );
             const viewCountSnap = await getCountFromServer(viewQuery);
             return { ...pitch, views: viewCountSnap.data().count };
           })
@@ -134,7 +149,7 @@ export default function EntrepreneurDashboard() {
           <View style={styles.welcomeContainer}>
             <View>
               <Text style={styles.welcomeLabel}>Good morning,</Text>
-              <Text style={styles.welcomeTitle}>{username} ✨</Text>
+              <Text style={styles.welcomeTitle}>{username} </Text>
             </View>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>ENTREPRENEUR</Text>
@@ -172,7 +187,7 @@ export default function EntrepreneurDashboard() {
             <View style={styles.statBoxWrapper}>
               <View style={styles.statBox}>
                 <Ionicons name="rocket-outline" size={20} color="#EC4899" />
-                <Text style={styles.statNumber}>{pitches.filter(p => p.status === "Open").length}</Text>
+                <Text style={styles.statNumber}>{pitches.filter((p) => isOpenStatus(p.status)).length}</Text>
                 <Text style={styles.statTitle}>Live Pitches</Text>
               </View>
             </View>
