@@ -10,6 +10,7 @@ import { auth, db } from "../firebaseConfig";
 import outfitRegular from "../assets/fonts/Outfit-Regular.ttf";
 import outfitBold from "../assets/fonts/Outfit-Bold.ttf";
 import outfitMedium from "../assets/fonts/Outfit-Medium.ttf";
+import { ThemeProvider } from "../context/ThemeContext";
 
 
 const isExpoGo =
@@ -224,7 +225,7 @@ export default function RootLayout() {
           }
 
           // Entrepreneurs should land directly on their dashboard after role selection.
-          router.replace("/entrepreneur/dashboard");
+          router.replace("/entrepreneur/dashboard" as any);
           setInitialRouteLoaded(true);
           return;
         }
@@ -237,7 +238,7 @@ export default function RootLayout() {
           }
 
           if (!inInvestor) {
-            router.replace("/investor/dashboard");
+            router.replace("/investor/dashboard" as any);
           }
           setInitialRouteLoaded(true);
           return;
@@ -255,6 +256,34 @@ export default function RootLayout() {
           setInitialRouteLoaded(true);
           return;
         }
+
+        if (normalizedRole === "stakeholder") {
+          const inStakeholder = firstSegment === "stakeholder";
+          if (inStakeholder || inChat || inProfile) {
+            setInitialRouteLoaded(true);
+            return;
+          }
+
+          if (!inStakeholder) {
+            router.replace("/stakeholder/dashboard" as any);
+          }
+          setInitialRouteLoaded(true);
+          return;
+        }
+        if (normalizedRole === "admin") {
+          const inAdmin = firstSegment === "admin";
+          if (inAdmin || inChat || inProfile) {
+            setInitialRouteLoaded(true);
+            return;
+          }
+
+          if (!inAdmin) {
+            router.replace("/admin/marketplace-admin" as any);
+          }
+          setInitialRouteLoaded(true);
+          return;
+        }
+
         /* ===============================
            👥 OTHER ROLES (FUTURE)
         =============================== */
@@ -284,44 +313,45 @@ export default function RootLayout() {
   }
 
   return (
-    // StripeProvider disabled temporarily for Expo Go compat
-    <StripeProvider publishableKey="pk_test_51TOKSuCDZMl8sA2goQ07y28hYoNTrjiJi8lK2UnIbLQ3DrG1Em4UiAStRncTPqqBVeZnSaM5aNUc3wcKIwkW6Xh600byPZXxqV">
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
+    <ThemeProvider>
+      <StripeProvider publishableKey="pk_test_51TOKSuCDZMl8sA2goQ07y28hYoNTrjiJi8lK2UnIbLQ3DrG1Em4UiAStRncTPqqBVeZnSaM5aNUc3wcKIwkW6Xh600byPZXxqV">
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
 
-        {/* Onboarding */}
-        <Stack.Screen name="onboarding/screen1" />
-        <Stack.Screen name="onboarding/screen2" />
-        <Stack.Screen name="onboarding/screen3" />
+          {/* Onboarding */}
+          <Stack.Screen name="onboarding/screen1" />
+          <Stack.Screen name="onboarding/screen2" />
+          <Stack.Screen name="onboarding/screen3" />
 
-        {/* Auth */}
-        <Stack.Screen name="auth/welcome" />
-        <Stack.Screen name="auth/login" />
-        <Stack.Screen name="auth/signup" />
-        <Stack.Screen name="auth/role-selection" />
-        <Stack.Screen name="auth/investor-selection" />
-        <Stack.Screen name="auth/category-selection" />
+          {/* Auth */}
+          <Stack.Screen name="auth/welcome" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="auth/signup" />
+          <Stack.Screen name="auth/role-selection" />
+          <Stack.Screen name="auth/investor-selection" />
+          <Stack.Screen name="auth/category-selection" />
 
-        {/* Entrepreneur */}
-        <Stack.Screen name="entrepreneur/dashboard" />
-        <Stack.Screen name="entrepreneur/create-pitch" />
+          {/* Entrepreneur */}
+          <Stack.Screen name="entrepreneur/dashboard" />
+          <Stack.Screen name="entrepreneur/create-pitch" />
 
-        {/* Customer */}
-        <Stack.Screen name="customer" />
-        
-        {/* Investor */}
-        <Stack.Screen name="investor/inbox" options={{ headerShown: false }} />
+          {/* Customer */}
+          <Stack.Screen name="customer" />
 
-        {/* Chat */}
-        <Stack.Screen
-          name="chat/[id]"
-          options={{
-            headerShown: false,
-            animation: "slide_from_right",
-          }}
-        />
-      </Stack>
-    </StripeProvider>
+          {/* Investor */}
+          <Stack.Screen name="investor/inbox" options={{ headerShown: false }} />
+
+          {/* Chat */}
+          <Stack.Screen
+            name="chat/[id]"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+            }}
+          />
+        </Stack>
+      </StripeProvider>
+    </ThemeProvider>
   );
 }
 

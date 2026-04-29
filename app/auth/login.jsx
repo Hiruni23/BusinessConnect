@@ -65,27 +65,9 @@ const LoginScreen = () => {
 
       console.log("Logged in user:", user.email);
       setLoading(false);
-
-      // Check if user has completed setup
-      const roleRoutes = {
-        entrepreneur: '/entrepreneur/dashboard',
-        investor: '/investor/dashboard',
-        stakeholder: '/stakeholder/dashboard',
-        customer: '/(tabs)/dashboard',
-      };
-
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-
-      if (userDoc.exists()) {
-        const role = userDoc.data().role;
-        const route = roleRoutes[role];
-
-        if (route) {
-          router.replace(route);
-        } else {
-          router.replace('/auth/role-selection');
-        }
-      }
+      
+      // Note: Redirection is now handled automatically by the Root Layout 
+      // based on the user's role in Firestore.
     } catch (error) {
       console.log('Login error:', error);
       setLoading(false);
