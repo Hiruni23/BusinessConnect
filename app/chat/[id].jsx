@@ -86,6 +86,7 @@ export default function ChatScreen() {
         if (snap.exists()) {
           const data = snap.data();
           setChatData(data);
+          console.log("Chat metadata loaded:", { chatId: id, uid: user?.uid, participants: data.participants });
 
           // CLEAR UNREAD STATUS for current user
           try {
@@ -96,14 +97,18 @@ export default function ChatScreen() {
             console.error("Failed to clear unread status:", err);
           }
 
-          // 2. Fetch the other user's mobile number for calling/WhatsApp
-          const otherId = data.participants.find((p) => p !== user.uid);
-          if (otherId) {
-            const userDoc = await getDoc(doc(db, "users", otherId));
-            if (userDoc.exists()) {
-              setOtherUserMobile(userDoc.data().phoneNumber); // Ensure your field is named 'phoneNumber'
-              setOtherUserToken(userDoc.data().pushToken || null);
+          // Fetch the other user's mobile number and push token
+          try {
+            const otherId = data.participants?.find((p) => p !== user.uid);
+            if (otherId) {
+              const userDoc = await getDoc(doc(db, "users", otherId));
+              if (userDoc.exists()) {
+                setOtherUserMobile(userDoc.data().phoneNumber);
+                setOtherUserToken(userDoc.data().pushToken || null);
+              }
             }
+          } catch (err) {
+            console.error("Failed to fetch other user info:", err);
           }
         }
       },
@@ -118,6 +123,7 @@ export default function ChatScreen() {
     };
   }, [id, user]);
 
+  // Listen for the other user's presence/status
   useEffect(() => {
     if (!chatData || !user) return;
 
@@ -161,7 +167,11 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (!id || !user) return;
+    // Only attach messages listener after we have chat metadata
+    // and confirm the current user is a participant.
+    if (!id || !user || !chatData || !Array.isArray(chatData.participants) || !chatData.participants.includes(user.uid)) {
+      return;
+    }
 
     const q = query(
       collection(db, "chats", id, "messages"),
@@ -171,6 +181,7 @@ export default function ChatScreen() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        console.log("Messages snapshot received:", { chatId: id, uid: user?.uid, docs: snapshot.size });
         const msgList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -192,13 +203,13 @@ export default function ChatScreen() {
         }
       },
       (error) => {
-        console.error("Messages listener failed:", error);
+        console.error("Messages listener failed:", error, { chatId: id, uid: user?.uid });
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [id, lastNotifiedId, user]);
+  }, [id, lastNotifiedId, user, chatData]);
 
   const sendPushNotification = async (targetToken, msgText) => {
     const message = {
