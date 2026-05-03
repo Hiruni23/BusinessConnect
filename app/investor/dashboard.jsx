@@ -62,7 +62,10 @@ export default function LightInvestorDashboard() {
         maxInvestment: Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
       };
       const sorted = pitchList
-        .map(p => ({ ...p, matchScore: calculateMatchScore(p, currentUserPrefs) }))
+        .map(p => {
+          const matchResult = calculateMatchScore(p, currentUserPrefs);
+          return { ...p, matchScore: matchResult.score, matchReason: matchResult.matchReason };
+        })
         .sort((a, b) => b.matchScore - a.matchScore);
       setPitches(sorted);
       setLoading(false);
@@ -160,6 +163,34 @@ export default function LightInvestorDashboard() {
             </View>
           </View>
 
+          {/* AI RECOMMENDED BUSINESSES CAROUSEL */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>AI Recommended</Text>
+              <Text style={styles.seeAll}>Powered by Gemini</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 15 }}>
+              {pitches.slice(0, 3).map(pitch => (
+                <View key={pitch.id} style={styles.aiCarouselCard}>
+                  <View style={styles.aiBadge}>
+                    <Ionicons name="sparkles" size={12} color="#10B981" />
+                    <Text style={styles.aiBadgeText}>AI Recommended</Text>
+                  </View>
+                  <Text style={styles.oCategory}>{pitch.category?.toUpperCase() || "TECH"}</Text>
+                  <Text style={styles.oTitle} numberOfLines={1}>{pitch.title}</Text>
+                  <Text style={styles.aiMatchReason}>{pitch.matchReason}</Text>
+                  
+                  <View style={styles.aiFooter}>
+                    <Text style={styles.aiScoreText}>{pitch.matchScore}% Match</Text>
+                    <TouchableOpacity style={styles.viewBtn} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })}>
+                      <Text style={styles.viewBtnText}>View</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
           {/* MAIN PITCH LIST */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -175,7 +206,7 @@ export default function LightInvestorDashboard() {
                 <Text style={styles.emptyText}>No new pitches available</Text>
               </View>
             ) : (
-              pitches.map(pitch => <OpportunityCard key={pitch.id} pitch={pitch} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })} />)
+              pitches.slice(3).map(pitch => <OpportunityCard key={pitch.id} pitch={pitch} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })} />)
             )}
           </View>
         </ScrollView>
@@ -222,6 +253,8 @@ const OpportunityCard = ({ pitch, onPress }) => {
             <View style={[styles.progressBarFill, { width: `${progress * 100}%`, backgroundColor: matchColor }]} />
          </View>
       </View>
+
+      <Text style={styles.oMatchReason}>{pitch.matchReason}</Text>
 
       <View style={styles.oCardFooter}>
         <View>
@@ -322,5 +355,13 @@ const styles = StyleSheet.create({
   mainActionGradient: { flex: 1, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
 
   emptyState: { padding: 40, alignItems: 'center' },
-  emptyText: { color: '#94A3B8', fontWeight: '600', marginTop: 10 }
+  emptyText: { color: '#94A3B8', fontWeight: '600', marginTop: 10 },
+  
+  aiCarouselCard: { width: 280, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, elevation: 5, shadowColor: '#10B981', shadowOpacity: 0.15, shadowRadius: 15, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
+  aiBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 12 },
+  aiBadgeText: { color: '#10B981', fontSize: 10, fontWeight: '900', marginLeft: 4, textTransform: 'uppercase' },
+  aiMatchReason: { color: '#64748B', fontSize: 12, fontWeight: '600', marginTop: 8, marginBottom: 15, fontStyle: 'italic' },
+  aiFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 15 },
+  aiScoreText: { color: '#10B981', fontSize: 16, fontWeight: '900' },
+  oMatchReason: { fontSize: 12, color: '#64748B', fontStyle: 'italic', marginBottom: 15 }
 });
