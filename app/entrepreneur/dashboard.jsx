@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -27,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { db, auth } from "../../firebaseConfig";
+import matchAlgorithm from "../../utils/matchAlgorithm";
 import AIChatModal from "../components/AIChatModal";
 import SideMenu from "../components/SideMenu";
 import NotificationBell from '../../components/NotificationBell';
@@ -35,7 +37,7 @@ const { width } = Dimensions.get("window");
 
 export default function EntrepreneurDashboard() {
   const router = useRouter();
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
   
   const [pitches, setPitches] = useState([]);
   const [recentChats, setRecentChats] = useState([]);
@@ -43,17 +45,37 @@ export default function EntrepreneurDashboard() {
   const [aiVisible, setAiVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [recommendedInvestors, setRecommendedInvestors] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const isOpenStatus = (status) => ['open', 'pending', 'in review', 'review'].includes(String(status || '').toLowerCase());
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchUserData = async () => {
+    const fetchUserDataAndMatches = async () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        setUserData({ ...userDoc.data(), email: user.email });
+        const cUser = { id: user.uid, ...userDoc.data(), email: user.email };
+        setUserData(cUser);
+
+        // Fetch Investors for AI Matching
+        const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
+        onSnapshot(qInvestors, (snap) => {
+           const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+           const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
+           setRecommendedInvestors(matches);
+        });
       }
     };
-    fetchUserData();
+    fetchUserDataAndMatches();
 
     const qPitches = query(collection(db, "pitches"), where("entrepreneurId", "==", user.uid));
     const unsubPitches = onSnapshot(qPitches, async (snapshot) => {
@@ -61,7 +83,11 @@ export default function EntrepreneurDashboard() {
         const pitchList = snapshot.docs.map((docItem) => ({ id: docItem.id, ...docItem.data() }));
         const pitchesWithViewCounts = await Promise.all(
           pitchList.map(async (pitch) => {
-            const viewQuery = query(collection(db, "pitchViews"), where("pitchId", "==", pitch.id));
+            const viewQuery = query(
+              collection(db, "pitchViews"), 
+              where("pitchId", "==", pitch.id),
+              where("entrepreneurId", "==", user.uid)
+            );
             const viewCountSnap = await getCountFromServer(viewQuery);
             return { ...pitch, views: viewCountSnap.data().count };
           })
@@ -134,7 +160,7 @@ export default function EntrepreneurDashboard() {
           <View style={styles.welcomeContainer}>
             <View>
               <Text style={styles.welcomeLabel}>Good morning,</Text>
-              <Text style={styles.welcomeTitle}>{username} ✨</Text>
+              <Text style={styles.welcomeTitle}>{username} </Text>
             </View>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>ENTREPRENEUR</Text>
@@ -160,6 +186,45 @@ export default function EntrepreneurDashboard() {
             </View>
           </TouchableOpacity>
 
+          {/* AI RECOMMENDED INVESTORS CAROUSEL */}
+          {recommendedInvestors.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recommended Investors</Text>
+                <TouchableOpacity onPress={() => router.push("/entrepreneur/ai-recommended-investors")}>
+                  <Text style={styles.seeAll}>See All</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 15, paddingBottom: 10 }}>
+                {recommendedInvestors.slice(0, 4).map(investor => (
+                  <View key={investor.id} style={styles.aiCarouselCard}>
+                    <View style={styles.aiBadge}>
+                      <Ionicons name="sparkles" size={12} color="#10B981" />
+                      <Text style={styles.aiBadgeText}>AI Recommended</Text>
+                    </View>
+                    <View style={styles.investorHeaderRow}>
+                       <View style={styles.investorAvatar}>
+                          <Text style={styles.investorAvatarText}>{investor.name ? investor.name.charAt(0).toUpperCase() : 'I'}</Text>
+                       </View>
+                       <View style={styles.investorInfo}>
+                          <Text style={styles.oTitle} numberOfLines={1}>{investor.name || "Investor"}</Text>
+                          <Text style={styles.oCategory}>{investor.location || "Global"}</Text>
+                       </View>
+                    </View>
+                    <Text style={styles.aiMatchReason}>{investor.matchReason}</Text>
+                    
+                    <View style={styles.aiFooter}>
+                      <Text style={styles.aiScoreText}>{investor.score}% Match</Text>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => router.push(`/profile/${investor.id}`)}>
+                        <Text style={styles.viewBtnText}>Profile</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* SECONDARY STATS GRID */}
           <View style={styles.statGrid}>
             <View style={styles.statBoxWrapper}>
@@ -172,7 +237,7 @@ export default function EntrepreneurDashboard() {
             <View style={styles.statBoxWrapper}>
               <View style={styles.statBox}>
                 <Ionicons name="rocket-outline" size={20} color="#EC4899" />
-                <Text style={styles.statNumber}>{pitches.filter(p => p.status === "Open").length}</Text>
+                <Text style={styles.statNumber}>{pitches.filter((p) => isOpenStatus(p.status)).length}</Text>
                 <Text style={styles.statTitle}>Live Pitches</Text>
               </View>
             </View>
@@ -364,4 +429,21 @@ const styles = StyleSheet.create({
   navItem: { alignItems: 'center', justifyContent: 'center' },
   activeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#4F46E5', marginTop: 4 },
   centerFab: { position: 'absolute', bottom: 40, width: 66, height: 66, borderRadius: 33, elevation: 12, shadowColor: '#4F46E5', shadowOpacity: 0.4, shadowRadius: 15 },
+  
+  section: { marginTop: 15 },
+  aiCarouselCard: { width: 280, backgroundColor: '#FFFFFF', borderRadius: 24, padding: 20, elevation: 5, shadowColor: '#10B981', shadowOpacity: 0.15, shadowRadius: 15, borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.2)' },
+  aiBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ECFDF5', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 15 },
+  aiBadgeText: { color: '#10B981', fontSize: 10, fontWeight: '900', marginLeft: 4, textTransform: 'uppercase' },
+  aiMatchReason: { color: '#64748B', fontSize: 12, fontWeight: '600', marginTop: 8, marginBottom: 15, fontStyle: 'italic' },
+  aiFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#F1F5F9', paddingTop: 15 },
+  aiScoreText: { color: '#10B981', fontSize: 16, fontWeight: '900' },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  viewBtnText: { color: '#4F46E5', fontSize: 13, fontWeight: '700' },
+  
+  investorHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  investorAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  investorAvatarText: { color: '#4F46E5', fontSize: 16, fontWeight: '800' },
+  investorInfo: { flex: 1 },
+  oTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
+  oCategory: { fontSize: 11, fontWeight: '700', color: '#64748B', letterSpacing: 0.5, marginTop: 2 }
 });

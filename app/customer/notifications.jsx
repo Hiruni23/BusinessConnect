@@ -1,183 +1,155 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
-import { collection, query, where, onSnapshot, orderBy, updateDoc, doc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../../firebaseConfig';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, StatusBar } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 
-export default function NotificationsCenter() {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null);
+export default function NotificationSettings() {
+  const router = useRouter();
+  
+  const [channels, setChannels] = useState({
+    pushOrders: true,
+    pushPromos: false,
+    pushSystem: true,
+    emailOrders: true,
+    emailPromos: true,
+    emailWeekly: false
+  });
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUserId(user?.uid || null);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (!userId) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    const q = query(
-      collection(db, "notifications"),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setNotifications(list);
-      setLoading(false);
-    }, (error) => {
-      console.error("Notifications Fetch Error:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [userId]);
-
-  const markAsRead = async (id) => {
-    try {
-      await updateDoc(doc(db, "notifications", id), { isRead: true });
-    } catch (error) {
-      console.error("Mark as read error:", error);
-    }
-  };
-
-  const getIcon = (type) => {
-    switch (type) {
-      case 'FUNDING_MILESTONE': return { name: 'rocket', color: '#6366F1' };
-      case 'INNOVATOR_UPDATE': return { name: 'megaphone', color: '#10B981' };
-      case 'AI_RECOMMENDATION': return { name: 'sparkles', color: '#A855F7' };
-      case 'PORTFOLIO_ALERT': return { name: 'wallet', color: '#F59E0B' };
-      default: return { name: 'notifications', color: '#64748B' };
-    }
-  };
-
-  const renderNotification = ({ item }) => {
-    const icon = getIcon(item.type);
-    return (
-      <TouchableOpacity 
-        style={[styles.card, !item.isRead && styles.unreadCard]} 
-        onPress={() => markAsRead(item.id)}
-      >
-        <View style={[styles.iconCircle, { backgroundColor: icon.color + '15' }]}>
-          <Ionicons name={icon.name} size={24} color={icon.color} />
-        </View>
-        <View style={styles.content}>
-          <View style={styles.topRow}>
-            <Text style={styles.typeText}>{item.type?.replace('_', ' ') || 'ACTIVITY'}</Text>
-            <Text style={styles.timeText}>{item.createdAt?.toDate().toLocaleDateString()}</Text>
-          </View>
-          <Text style={[styles.message, !item.isRead && styles.unreadMessage]}>{item.message}</Text>
-          {!item.isRead && <View style={styles.unreadDot} />}
-        </View>
-      </TouchableOpacity>
-    );
+  const toggleSwitch = (key) => {
+    setChannels(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Activity</Text>
-            <Text style={styles.headerSub}>Stay updated with your world.</Text>
-          </View>
-          <TouchableOpacity style={styles.clearBtn}>
-            <Text style={styles.clearBtnText}>Mark all as read</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color="#1E293B" />
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <View style={{ width: 44 }} />
         </View>
 
-        {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color="#6366F1" />
-          </View>
-        ) : notifications.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyCircle}>
-              <Ionicons name="notifications-off-outline" size={60} color="#E2E8F0" />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* PUSH NOTIFICATIONS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Push Notifications</Text>
+            <View style={styles.card}>
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Order Updates</Text>
+                  <Text style={styles.rowSub}>Tracking and delivery alerts</Text>
+                </View>
+                <Switch 
+                  value={channels.pushOrders} 
+                  onValueChange={() => toggleSwitch('pushOrders')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Promotions & Offers</Text>
+                  <Text style={styles.rowSub}>Discounts and flash sales</Text>
+                </View>
+                <Switch 
+                  value={channels.pushPromos} 
+                  onValueChange={() => toggleSwitch('pushPromos')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>System Messages</Text>
+                  <Text style={styles.rowSub}>Security and account alerts</Text>
+                </View>
+                <Switch 
+                  value={channels.pushSystem} 
+                  onValueChange={() => toggleSwitch('pushSystem')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
             </View>
-            <Text style={styles.emptyTitle}>All Quiet Here</Text>
-            <Text style={styles.emptySub}>We'll notify you when your innovations hit milestones or AI finds something new.</Text>
           </View>
-        ) : (
-          <FlatList
-            data={notifications}
-            renderItem={renderNotification}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
+
+          {/* EMAIL NOTIFICATIONS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Email Notifications</Text>
+            <View style={styles.card}>
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Transaction Receipts</Text>
+                  <Text style={styles.rowSub}>Sent for every purchase</Text>
+                </View>
+                <Switch 
+                  value={channels.emailOrders} 
+                  onValueChange={() => toggleSwitch('emailOrders')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Marketing Emails</Text>
+                  <Text style={styles.rowSub}>Product updates and news</Text>
+                </View>
+                <Switch 
+                  value={channels.emailPromos} 
+                  onValueChange={() => toggleSwitch('emailPromos')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.switchRow}>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Weekly Digest</Text>
+                  <Text style={styles.rowSub}>Summary of platform activity</Text>
+                </View>
+                <Switch 
+                  value={channels.emailWeekly} 
+                  onValueChange={() => toggleSwitch('emailWeekly')}
+                  trackColor={{ false: '#E2E8F0', true: '#6366F1' }}
+                  thumbColor="#FFF"
+                />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'flex-end', 
-    paddingHorizontal: 24, 
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9'
-  },
-  headerTitle: { fontSize: 32, fontWeight: '900', color: '#1E293B' },
-  headerSub: { fontSize: 14, color: '#64748B', fontWeight: '500', marginTop: 4 },
-  clearBtnText: { color: '#6366F1', fontSize: 13, fontWeight: '700' },
-
-  listContent: { padding: 20, paddingBottom: 100 },
-  card: { 
-    flexDirection: 'row', 
-    padding: 16, 
-    borderRadius: 24, 
-    backgroundColor: '#FFF', 
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F1F5F9'
-  },
-  unreadCard: { 
-    backgroundColor: '#F8FAFC', 
-    borderColor: '#E0E7FF',
-    borderLeftWidth: 4,
-    borderLeftColor: '#6366F1'
-  },
-  iconCircle: { 
-    width: 52, 
-    height: 52, 
-    borderRadius: 26, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    marginRight: 16
-  },
-  content: { flex: 1, position: 'relative' },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  typeText: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 0.5 },
-  timeText: { fontSize: 10, color: '#94A3B8', fontWeight: '600' },
-  message: { fontSize: 14, color: '#475569', lineHeight: 20, fontWeight: '500' },
-  unreadMessage: { color: '#1E293B', fontWeight: '700' },
-  unreadDot: { position: 'absolute', top: 30, right: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: '#6366F1' },
-
-  emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
-  emptyCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  emptyTitle: { fontSize: 20, fontWeight: '800', color: '#1E293B' },
-  emptySub: { fontSize: 14, color: '#94A3B8', textAlign: 'center', marginTop: 8, lineHeight: 22 }
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10 },
+  backBtn: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  headerTitle: { fontSize: 20, fontWeight: '900', color: '#1E293B' },
+  
+  scrollContent: { padding: 24 },
+  section: { marginBottom: 32 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16, marginLeft: 8 },
+  card: { backgroundColor: '#FFF', borderRadius: 32, padding: 10, elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15 },
+  
+  switchRow: { flexDirection: 'row', alignItems: 'center', padding: 18 },
+  rowContent: { flex: 1 },
+  rowLabel: { fontSize: 16, fontWeight: '700', color: '#1E293B' },
+  rowSub: { fontSize: 12, color: '#94A3B8', marginTop: 2, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: '#F8FAFC', marginHorizontal: 15 }
 });

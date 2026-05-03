@@ -11,9 +11,10 @@ import Reports from './pages/Reports';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
 import Investors from './pages/Investors';
+import Marketplace from './pages/Marketplace';
 import MainLayout from './layout/MainLayout';
 
-const tabs = ['Dashboard', 'Users', 'Investors', 'Projects', 'Investments', 'Reports', 'Notifications', 'Settings'];
+const tabs = ['Dashboard', 'Users', 'Investors', 'Marketplace', 'Projects', 'Investments', 'Reports', 'Notifications', 'Settings'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('Dashboard');
@@ -58,6 +59,10 @@ export default function App() {
 
     if (activeTab === 'Investors') {
       return Investors;
+    }
+
+    if (activeTab === 'Marketplace') {
+      return Marketplace;
     }
 
     if (activeTab === 'Projects') {

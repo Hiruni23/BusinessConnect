@@ -28,6 +28,7 @@ const SignUpScreen = () => {
   const router = useRouter();
 
   // STATE FOR INPUTS
+  const [selectedRole, setSelectedRole] = useState('entrepreneur');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -35,11 +36,19 @@ const SignUpScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ROLES DATA
+  const roles = [
+    { id: 'entrepreneur', label: 'Entrepreneur', icon: 'rocket-outline' },
+    { id: 'investor', label: 'Investor', icon: 'trending-up-outline' },
+    { id: 'stakeholder', label: 'Stakeholder', icon: 'shield-checkmark-outline' },
+    { id: 'customer', label: 'Customer', icon: 'cart-outline' },
+  ];
+
   // SIGNUP HANDLER
   const handleSignUp = async () => {
     // Basic Validation
-    if (!name || !email || !phoneNumber || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill in all fields.");
+    if (!name || !email || !phoneNumber || !password || !confirmPassword || !selectedRole) {
+      Alert.alert("Error", "Please fill in all fields and select a role.");
       return;
     }
     if (password !== confirmPassword) {
@@ -70,15 +79,20 @@ const SignUpScreen = () => {
         fullName: name,
         email: email.trim().toLowerCase(),
         phoneNumber: phoneNumber.trim(),
+        role: selectedRole, // ✅ Role saved directly at signup
         createdAt: serverTimestamp(),
         setupComplete: false, 
       });
-      console.log('User data saved to Firestore');
+      console.log('User data saved to Firestore with role:', selectedRole);
 
       setLoading(false);
       
-      // 3. Navigate to role selection
-      router.replace('/auth/role-selection');
+      // 3. Navigate to appropriate dashboard
+      const dashboard = selectedRole === 'entrepreneur' ? '/entrepreneur/dashboard' : 
+                        selectedRole === 'investor' ? '/investor/dashboard' :
+                        selectedRole === 'customer' ? '/customer/dashboard' : '/stakeholder/dashboard';
+      
+      router.replace(dashboard);
 
     } catch (error) {
       console.log('Signup error:', error);
@@ -138,88 +152,117 @@ const SignUpScreen = () => {
             <BlurView intensity={40} tint="dark" style={styles.formCard}>
               <Text style={styles.formTitle}>Sign Up</Text>
 
-              {/* Name Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput 
-                  placeholder="Full Name" 
-                  style={styles.input} 
-                  placeholderTextColor="#94A3B8"
-                  value={name}
-                  onChangeText={setName}
-                />
+              {/* Role Selection */}
+              <Text style={styles.sectionLabel}>Select Your Role</Text>
+              <View style={styles.roleGrid}>
+                {roles.map((role) => (
+                  <TouchableOpacity
+                    key={role.id}
+                    style={[
+                      styles.roleOption,
+                      selectedRole === role.id && styles.roleOptionActive
+                    ]}
+                    onPress={() => setSelectedRole(role.id)}
+                  >
+                    <Ionicons 
+                      name={role.icon} 
+                      size={20} 
+                      color={selectedRole === role.id ? '#fff' : '#94A3B8'} 
+                    />
+                    <Text style={[
+                      styles.roleLabel,
+                      selectedRole === role.id && styles.roleLabelActive
+                    ]}>
+                      {role.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              {/* Email Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput 
-                  placeholder="Email Address" 
-                  style={styles.input} 
-                  placeholderTextColor="#94A3B8" 
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
+              <View style={{ marginTop: 10 }}>
+                {/* Name Input */}
+                <View style={styles.inputContainer}>
+                  <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput 
+                    placeholder="Full Name" 
+                    style={styles.input} 
+                    placeholderTextColor="#94A3B8"
+                    value={name}
+                    onChangeText={setName}
+                  />
+                </View>
 
-              {/* Phone Number Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="call-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Phone Number (e.g. +94771234567)"
-                  placeholderTextColor="#94A3B8"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                />
-              </View>
+                {/* Email Input */}
+                <View style={styles.inputContainer}>
+                  <Ionicons name="mail-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput 
+                    placeholder="Email Address" 
+                    style={styles.input} 
+                    placeholderTextColor="#94A3B8" 
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                </View>
 
-              {/* Password Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput 
-                  placeholder="Password" 
-                  style={styles.input} 
-                  placeholderTextColor="#94A3B8" 
-                  secureTextEntry 
-                  value={password}
-                  onChangeText={setPassword}
-                />
-              </View>
+                {/* Phone Number Input */}
+                <View style={styles.inputContainer}>
+                  <Ionicons name="call-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Phone Number (e.g. +94771234567)"
+                    placeholderTextColor="#94A3B8"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                  />
+                </View>
 
-              {/* Confirm Password Input */}
-              <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput 
-                  placeholder="Confirm Password" 
-                  style={styles.input} 
-                  placeholderTextColor="#94A3B8" 
-                  secureTextEntry 
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-              </View>
+                {/* Password Input */}
+                <View style={styles.inputContainer}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput 
+                    placeholder="Password" 
+                    style={styles.input} 
+                    placeholderTextColor="#94A3B8" 
+                    secureTextEntry 
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                </View>
 
-              <TouchableOpacity 
-                style={[styles.signUpButton, loading && { opacity: 0.7 }]}
-                onPress={handleSignUp}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.signUpButtonText}>Sign Up</Text>
-                )}
-              </TouchableOpacity>
+                {/* Confirm Password Input */}
+                <View style={styles.inputContainer}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput 
+                    placeholder="Confirm Password" 
+                    style={styles.input} 
+                    placeholderTextColor="#94A3B8" 
+                    secureTextEntry 
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                  />
+                </View>
 
-              <View style={styles.loginLinkContainer}>
-                <Text style={styles.alreadyText}>Already have an account? </Text>
-                <TouchableOpacity onPress={() => router.push('/auth/login')}>
-                  <Text style={styles.loginText}>Log In</Text>
+                <TouchableOpacity 
+                  style={[styles.signUpButton, loading && { opacity: 0.7 }]}
+                  onPress={handleSignUp}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.signUpButtonText}>Create Account</Text>
+                  )}
                 </TouchableOpacity>
+
+                <View style={styles.loginLinkContainer}>
+                  <Text style={styles.alreadyText}>Already have an account? </Text>
+                  <TouchableOpacity onPress={() => router.push('/auth/login')}>
+                    <Text style={styles.loginText}>Log In</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </BlurView>
 
@@ -283,7 +326,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
     overflow: 'hidden',
   },
-  formTitle: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 24 },
+  formTitle: { fontSize: 26, fontWeight: '700', color: '#fff', marginBottom: 20 },
+  sectionLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+  roleOption: { flex: 1, minWidth: '45%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', gap: 8 },
+  roleOptionActive: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+  roleLabel: { color: '#94A3B8', fontSize: 13, fontWeight: '600' },
+  roleLabelActive: { color: '#fff' },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
