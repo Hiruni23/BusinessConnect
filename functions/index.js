@@ -10,8 +10,10 @@ const stripe = require("stripe")("sk_test_51TOKSuCDZMl8sA2g91wKmQS6m18tHCQKcb2NV
 admin.initializeApp();
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const rawKey = process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY";
+const cleanKey = rawKey.replace(/^["']|["']$/g, '');
+const genAI = new GoogleGenerativeAI(cleanKey);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 /* =====================================================
    0️⃣ Business AI Suite (Centralized AI Functions)
@@ -30,6 +32,7 @@ exports.askBusinessAI = onCall(async (request) => {
     const result = await model.generateContent(`${context}\nUser: ${prompt}`);
     return { text: result.response.text() };
   } catch (error) {
+    console.error("askBusinessAI error:", error);
     throw new HttpsError("internal", "AI Service Error: " + error.message);
   }
 });
@@ -44,6 +47,7 @@ exports.generateAIPitch = onCall(async (request) => {
     const result = await model.generateContent(prompt);
     return { text: result.response.text() };
   } catch (error) {
+    console.error("generateAIPitch error:", error);
     throw new HttpsError("internal", "AI Generation Error.");
   }
 });
@@ -57,6 +61,7 @@ exports.analyzePitch = onCall(async (request) => {
     const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(text);
   } catch (error) {
+    console.error("analyzePitch error:", error);
     throw new HttpsError("internal", "AI Analysis Error.");
   }
 });

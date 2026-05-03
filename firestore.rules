@@ -12,15 +12,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    function userRole() {
-      return (signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))) 
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
-        : null;
-    }
+
 
     function isRole(role) {
       return signedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role != null &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.lower() == role.lower();
     }
@@ -43,17 +40,21 @@ service cloud.firestore {
 
     function isChatParticipant(chatId) {
       return signedIn() && (
-        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants ||
-        get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid ||
-        get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/chats/$(chatId)) && (
+          ('investorId' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid) ||
+          ('entrepreneurId' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid) ||
+          ('participants' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.participants is list && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants)
+        ))
       );
     }
 
     function canAccessChat(data) {
       return signedIn() && (
-        (data.participants is list && request.auth.uid in data.participants) ||
-        data.investorId == request.auth.uid ||
-        data.entrepreneurId == request.auth.uid
+        ('investorId' in data && data.investorId == request.auth.uid) ||
+        ('entrepreneurId' in data && data.entrepreneurId == request.auth.uid) ||
+        ('participants' in data && data.participants is list && request.auth.uid in data.participants) ||
+        isAdmin()
       );
     }
 
@@ -119,9 +120,9 @@ service cloud.firestore {
     }
 
     match /chats/{chatId} {
-      allow read: if canAccessChat(resource.data);
+      allow read: if resource == null || canAccessChat(resource.data);
       allow create: if canAccessChat(request.resource.data);
-      allow update: if canAccessChat(resource.data) && canAccessChat(request.resource.data);
+      allow update: if canAccessChat(resource.data);
       
       match /messages/{messageId} {
         allow read, create: if isChatParticipant(chatId);
