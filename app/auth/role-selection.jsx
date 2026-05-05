@@ -1,20 +1,31 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from "react-native";
-import { useState } from "react";
-import { useRouter } from "expo-router";
-import { doc, updateDoc } from "firebase/firestore";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { useState } from "react";
+import {
+  Alert,
+  Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
+
+const { width } = Dimensions.get("window");
 
 export default function RoleSelection() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { fullName, email, phoneNumber } = params;
   const [selectedRole, setSelectedRole] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleContinue = async () => {
     if (!selectedRole) {
@@ -23,16 +34,23 @@ export default function RoleSelection() {
     }
 
     try {
+      setIsSubmitting(true);
       const user = auth.currentUser;
 
       if (!user) {
         Alert.alert("Error", "User not authenticated");
+        setIsSubmitting(false);
         return;
       }
 
-      // ✅ Save role in lowercase (VERY IMPORTANT)
-      await updateDoc(doc(db, "users", user.uid), {
+      // ✅ Create user document in Firestore with all details
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        fullName: fullName || user.displayName || "User",
+        email: email || user.email,
+        phoneNumber: phoneNumber || "",
         role: selectedRole,
+        createdAt: serverTimestamp(),
         setupComplete: false,
       });
 
@@ -41,89 +59,128 @@ export default function RoleSelection() {
         case "entrepreneur":
           router.replace("/entrepreneur/dashboard");
           break;
-
         case "investor":
           router.replace("/investor/dashboard");
           break;
-
         case "stakeholder":
           router.replace("/stakeholder/dashboard");
           break;
-
         case "customer":
           router.replace("/customer/dashboard");
           break;
-
         default:
           router.replace("/");
       }
     } catch (error) {
-      console.error("Role update error:", error);
-      Alert.alert("Error", "Something went wrong while saving role.");
+      console.error("Role save error:", error);
+      Alert.alert("Error", "Something went wrong while saving your role.");
+      setIsSubmitting(false);
     }
   };
 
-  // 🔹 Role Card Component
-  const RoleCard = ({ value, label, image }) => {
-    const isSelected = selectedRole === value;
-
-    return (
-      <TouchableOpacity
-        style={[styles.card, isSelected && styles.activeCard]}
-        onPress={() => setSelectedRole(value)}
-      >
-        {/* Tick Circle */}
-        <View
-          style={[
-            styles.tickCircle,
-            isSelected && styles.tickCircleActive,
-          ]}
-        >
-          {isSelected && (
-            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-          )}
-        </View>
-
-        <Image source={image} style={styles.image} />
-        <Text style={styles.cardText}>{label}</Text>
-      </TouchableOpacity>
-    );
-  };
+  const roles = [
+    {
+      id: "entrepreneur",
+      title: "Entrepreneur",
+      subtitle: "Raise capital & grow",
+      image: require("../../assets/roles/entrepreneur.png"),
+    },
+    {
+      id: "investor",
+      title: "Investor",
+      subtitle: "Fund startups",
+      image: require("../../assets/roles/investor.png"),
+    },
+    {
+      id: "stakeholder",
+      title: "Stakeholder",
+      subtitle: "Govern & oversee",
+      image: require("../../assets/roles/stakeholder.png"),
+    },
+    {
+      id: "customer",
+      title: "Customer",
+      subtitle: "Discover products",
+      image: require("../../assets/roles/customer.png"),
+    },
+  ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Choose Your Role</Text>
+    <LinearGradient
+      colors={['#0F172A', '#1E3A8A', '#020617']}
+      style={styles.container}
+    >
+      <StatusBar barStyle="light-content" />
 
-      <View style={styles.grid}>
-        <RoleCard
-          value="entrepreneur"
-          label="Entrepreneur"
-          image={require("../../assets/roles/entrepreneur.png")}
-        />
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.greeting}>Welcome to BusinessConnect</Text>
+            <Text style={styles.title}>Choose Your Path</Text>
+            <Text style={styles.subtitle}>
+              Select the role that best describes how you'll use the platform.
+            </Text>
+          </View>
 
-        <RoleCard
-          value="investor"
-          label="Investor"
-          image={require("../../assets/roles/investor.png")}
-        />
+          <View style={styles.grid}>
+            {roles.map((role) => {
+              const isSelected = selectedRole === role.id;
+              return (
+                <TouchableOpacity
+                  key={role.id}
+                  activeOpacity={0.8}
+                  style={styles.cardContainer}
+                  onPress={() => setSelectedRole(role.id)}
+                >
+                  <BlurView 
+                    intensity={40} 
+                    tint="dark" 
+                    style={[styles.card, isSelected && styles.activeCard]}
+                  >
+                    <View style={[styles.radio, isSelected && styles.radioActive]}>
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
 
-        <RoleCard
-          value="stakeholder"
-          label="Stakeholder"
-          image={require("../../assets/roles/stakeholder.png")}
-        />
+                    <View style={styles.imageContainer}>
+                      <Image source={role.image} style={styles.image} />
+                    </View>
 
-        <RoleCard
-          value="customer"
-          label="Customer"
-          image={require("../../assets/roles/customer.png")}
-        />
-      </View>
+                    <Text style={styles.cardTitle}>{role.title}</Text>
+                    <Text style={styles.cardSubtitle}>{role.subtitle}</Text>
+                  </BlurView>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleContinue}>
-        <Text style={styles.buttonText}>Continue</Text>
-      </TouchableOpacity>
-    </View>
+          {/* Spacer to ensure content isn't hidden behind the floating button */}
+          <View style={styles.spacer} />
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.button, !selectedRole && styles.buttonDisabled]}
+            onPress={handleContinue}
+            disabled={!selectedRole || isSubmitting}
+          >
+            <Text style={[styles.buttonText, !selectedRole && styles.buttonTextDisabled]}>
+              {isSubmitting ? "Setting up..." : "Continue"}
+            </Text>
+            {!isSubmitting && (
+              <Ionicons
+                name="arrow-forward"
+                size={20}
+                color={!selectedRole ? "rgba(255,255,255,0.4)" : "#FFFFFF"}
+                style={styles.buttonIcon}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -132,74 +189,148 @@ export default function RoleSelection() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#5C80F5",
-    padding: 20,
-    justifyContent: "center",
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 24,
+  },
+  greeting: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#3B82F6",
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 20,
+    fontSize: 32,
+    fontWeight: "800",
     color: "#FFFFFF",
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 24,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    paddingHorizontal: 16,
     justifyContent: "space-between",
   },
-  card: {
-    width: "48%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 12,
+  cardContainer: {
+    width: (width - 48) / 2, // 2 columns: window width minus padding
     marginBottom: 16,
-    alignItems: "center",
-    elevation: 4,
-    position: "relative",
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  card: {
+    flex: 1,
+    padding: 16,
+    alignItems: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+    borderRadius: 24,
   },
   activeCard: {
-    borderWidth: 2,
-    borderColor: "#4F46E5",
+    backgroundColor: "rgba(59, 130, 246, 0.2)",
+    borderColor: "#3B82F6",
   },
-  tickCircle: {
-    position: "absolute",
-    top: 10,
-    right: 10,
+  radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 2,
-    borderColor: "#CBD5E1",
-    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
+    position: "absolute",
+    top: 16,
+    right: 16,
+    zIndex: 1,
   },
-  tickCircleActive: {
-    backgroundColor: "#4F46E5",
-    borderColor: "#4F46E5",
+  radioActive: {
+    borderColor: "#3B82F6",
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#3B82F6",
+  },
+  imageContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 16,
+    marginTop: 8,
   },
   image: {
-    width: 160,
-    height: 150,
+    width: 90,
+    height: 90,
     resizeMode: "contain",
-    marginBottom: 8,
   },
-  cardText: {
-    fontSize: 16,
+  cardTitle: {
+    fontSize: 17,
     fontWeight: "700",
-    color: "#111827",
+    color: "#FFFFFF",
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.6)",
+    lineHeight: 18,
+  },
+  spacer: {
+    height: 100,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingBottom: 32, // Extra padding for safe area on iOS
+    backgroundColor: "transparent",
   },
   button: {
-    backgroundColor: "#1109B4",
-    padding: 16,
-    borderRadius: 30,
-    marginTop: 20,
+    backgroundColor: "#3B82F6",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    borderRadius: 16,
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  buttonDisabled: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
+    marginRight: 8,
+    letterSpacing: 0.5,
+  },
+  buttonTextDisabled: {
+    color: "rgba(255,255,255,0.4)",
+  },
+  buttonIcon: {
+    marginTop: 2,
   },
 });

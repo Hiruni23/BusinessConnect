@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Dimensions } from 'react-native';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, FlatList, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -25,6 +24,9 @@ export default function Cart() {
       } else {
         setCartItems([]);
       }
+      setLoading(false);
+    }, (error) => {
+      console.error("Cart listener failed:", error);
       setLoading(false);
     });
 
