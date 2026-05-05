@@ -196,8 +196,21 @@ export default function RootLayout() {
 
         const role = userData?.role; // "Entrepreneur" | "entrepreneur" | etc
         const normalizedRole = String(role || "").toLowerCase();
-        /* 1️⃣ No role → force role selection */
+        /* 1️⃣ No role → force role selection ONLY during signup */
         if (!role) {
+          const isFromSignup = 
+            segments.join("/") === "auth/signup" || 
+            segments.join("/") === "auth/role-selection";
+            
+          if (!isFromSignup) {
+            // User is trying to log in (or open app) but their account setup was never completed.
+            // Sign them out and force them back to welcome instead of showing role selection.
+            auth.signOut();
+            router.replace("/auth/welcome");
+            setInitialRouteLoaded(true);
+            return;
+          }
+
           if (segments.join("/") !== "auth/role-selection") {
             router.replace("/auth/role-selection");
           }

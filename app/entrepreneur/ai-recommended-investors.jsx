@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  ActivityIndicator,
-  Dimensions
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebaseConfig';
+import { useRouter } from 'expo-router';
+import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { auth, db } from '../../firebaseConfig';
 import matchAlgorithm from '../../utils/matchAlgorithm';
 
 const { width } = Dimensions.get('window');
@@ -26,28 +26,49 @@ export default function AIRecommendedInvestors() {
   const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    const fetchUserDataAndMatches = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const cUser = { id: user.uid, ...userDoc.data() };
-        setUserData(cUser);
-
-        const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
-        const unsubscribe = onSnapshot(qInvestors, (snap) => {
-          const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
-          setInvestors(matches);
-          setLoading(false);
-        });
-
-        return () => unsubscribe();
+    const setupListeners = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const cUser = { id: user.uid, ...userDoc.data() };
+          setUserData(cUser);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
       }
     };
+    setupListeners();
 
-    fetchUserDataAndMatches();
+    const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
+    const unsubscribe = onSnapshot(qInvestors, (snap) => {
+      try {
+        const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Get user data from the same snapshot if possible
+        const userDocInSnap = snap.docs.find(d => d.id === user.uid);
+        let cUser = { id: user.uid, email: user.email };
+        if (userDocInSnap?.exists()) {
+          cUser = { ...cUser, ...userDocInSnap.data() };
+        }
+        
+        const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
+        setInvestors(matches);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error processing investors:", error);
+        setLoading(false);
+      }
+    }, (error) => {
+      console.error("AI recommended investors listener failed:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (
