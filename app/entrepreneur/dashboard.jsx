@@ -1,37 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Dimensions
-} from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from "firebase/auth";
-import { onAuthStateChanged } from "firebase/auth";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
-  collection,
-  doc, getDoc,
-  getCountFromServer,
-  limit,
-  onSnapshot,
-  query,
-  where,
-  orderBy
+    collection,
+    doc,
+    getCountFromServer,
+    getDoc,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    where
 } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
-import { db, auth } from "../../firebaseConfig";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Dimensions,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificationBell from '../../components/NotificationBell';
+import { auth, db } from "../../firebaseConfig";
 import matchAlgorithm from "../../utils/matchAlgorithm";
 import AIChatModal from "../components/AIChatModal";
 import SideMenu from "../components/SideMenu";
-import NotificationBell from '../../components/NotificationBell';
 
 const { width } = Dimensions.get("window");
 
@@ -60,22 +59,39 @@ export default function EntrepreneurDashboard() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchUserDataAndMatches = async () => {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const cUser = { id: user.uid, ...userDoc.data(), email: user.email };
-        setUserData(cUser);
+    const handleListenerError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setLoading(false);
+    };
 
-        // Fetch Investors for AI Matching
-        const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
-        onSnapshot(qInvestors, (snap) => {
-           const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-           const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
-           setRecommendedInvestors(matches);
-        });
+    const fetchUserData = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
       }
     };
-    fetchUserDataAndMatches();
+    fetchUserData();
+
+    // Fetch recommended investors
+    const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
+    const unsubInvestors = onSnapshot(qInvestors, (snap) => {
+      try {
+        const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const userDoc = snap.docs.find(d => d.id === user.uid);
+        const cUser = userDoc ? { id: userDoc.id, ...userDoc.data(), email: user.email } : null;
+        
+        if (cUser && cUser.role?.toLowerCase() === 'entrepreneur') {
+          const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
+          setRecommendedInvestors(matches);
+        }
+      } catch (error) {
+        console.error("Error processing investors:", error);
+      }
+    }, (error) => handleListenerError("Recommended investors", error));
 
     const qPitches = query(collection(db, "pitches"), where("entrepreneurId", "==", user.uid));
     const unsubPitches = onSnapshot(qPitches, async (snapshot) => {
@@ -94,7 +110,7 @@ export default function EntrepreneurDashboard() {
         );
         setPitches(pitchesWithViewCounts);
       } catch (error) { console.error(error); } finally { setLoading(false); }
-    });
+    }, (error) => handleListenerError("Pitches", error));
 
     const mountedAt = new Date();
     const qLatestNotif = query(collection(db, "notifications"), where("userId", "==", user.uid), where("createdAt", ">", mountedAt), orderBy("createdAt", "desc"), limit(1));
@@ -110,14 +126,14 @@ export default function EntrepreneurDashboard() {
           }
         }
       });
-    });
+    }, (error) => handleListenerError("Latest notification", error));
 
     const qChats = query(collection(db, "chats"), where("entrepreneurId", "==", user.uid), orderBy("updatedAt", "desc"));
     const unsubChats = onSnapshot(qChats, (snapshot) => {
       setRecentChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isUnread: doc.data().unreadBy?.includes(user.uid) })));
-    });
+    }, (error) => handleListenerError("Chats", error));
 
-    return () => { unsubPitches(); unsubLatestNotif(); unsubChats(); };
+    return () => { unsubInvestors(); unsubPitches(); unsubLatestNotif(); unsubChats(); };
   }, [user]);
 
   const handleLogout = async () => {

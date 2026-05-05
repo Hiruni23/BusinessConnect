@@ -1,35 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { getAuth, signOut } from "firebase/auth";
 import {
-  doc,
-  getDoc,
-  collection,
-  onSnapshot,
-  query,
-  where,
-  orderBy,
+    collection,
+    doc,
+    onSnapshot,
+    orderBy,
+    query,
+    where
 } from "firebase/firestore";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  StatusBar,
-  Dimensions,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    RefreshControl,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
+import NotificationBell from '../../components/NotificationBell';
 import { db } from "../../firebaseConfig";
 import { calculateMatchScore } from "../../utils/matchAlgorithm";
 import SideMenu from "../components/SideMenu";
-import NotificationBell from '../../components/NotificationBell';
 
 const { width } = Dimensions.get('window');
 
@@ -49,10 +48,15 @@ export default function LightInvestorDashboard() {
   /* ================= DATA FETCHING ================= */
   useEffect(() => {
     if (!user) return;
+
+    const handleListenerError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setLoading(false);
+    };
     
     const unsubUser = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
       if (docSnap.exists()) setUserData({ ...docSnap.data(), email: user.email });
-    });
+    }, (error) => handleListenerError("User profile", error));
 
     const qPitches = query(collection(db, "pitches"), where("status", "==", "Open"));
     const unsubPitches = onSnapshot(qPitches, (snapshot) => {
@@ -69,13 +73,13 @@ export default function LightInvestorDashboard() {
         .sort((a, b) => b.matchScore - a.matchScore);
       setPitches(sorted);
       setLoading(false);
-    });
+    }, (error) => handleListenerError("Pitches", error));
 
     const qChats = query(collection(db, "chats"), where("investorId", "==", user.uid), orderBy("updatedAt", "desc"));
-    const unsubChats = onSnapshot(qChats, (snap) => setRecentChats(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubChats = onSnapshot(qChats, (snap) => setRecentChats(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (error) => handleListenerError("Chats", error));
 
     const qInvest = query(collection(db, "transactions"), where("investorId", "==", user.uid), orderBy("timestamp", "desc"));
-    const unsubInvest = onSnapshot(qInvest, (snap) => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubInvest = onSnapshot(qInvest, (snap) => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (error) => handleListenerError("Investments", error));
 
     return () => { unsubUser(); unsubPitches(); unsubChats(); unsubInvest(); };
   }, [user, userData?.interests]);
