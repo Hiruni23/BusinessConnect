@@ -87,6 +87,7 @@ const LoginScreen = () => {
           router.replace({
             pathname: '/auth/role-selection',
             params: {
+              uid: user.uid,
               fullName: userDoc.data().fullName || user.displayName || '',
               email: userDoc.data().email || user.email,
               phoneNumber: userDoc.data().phoneNumber || '',
