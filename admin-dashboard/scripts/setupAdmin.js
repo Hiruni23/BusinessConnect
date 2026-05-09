@@ -11,8 +11,12 @@
 import admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY || './serviceAccountKey.json';
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+  ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+  : path.resolve(scriptDir, '..', 'serviceAccountKey.json');
 
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
@@ -29,7 +33,7 @@ To get your Firebase service account key:
 1. Go to Firebase Console → businessconnect-b6310
 2. Project Settings → Service Accounts → Generate new private key
 3. Save as: admin-dashboard/serviceAccountKey.json
-4. Run: node scripts/setupAdmin.js
+4. Run: npm run setup-admin
     `);
     process.exit(1);
   }

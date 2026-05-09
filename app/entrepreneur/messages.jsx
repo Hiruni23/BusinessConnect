@@ -57,7 +57,7 @@ export default function EntrepreneurMessages() {
     >
       <View style={styles.avatarContainer}>
         <LinearGradient
-          colors={item.isUnread ? ['#6366F1', '#A855F7'] : ['#E2E8F0', '#CBD5E1']}
+          colors={item.isUnread ? ['#3B82F6', '#2563EB'] : ['#E2E8F0', '#CBD5E1']}
           style={styles.avatarGradient}
         >
           <Ionicons name="person" size={24} color="#fff" />
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10
   },
-  unreadCard: { backgroundColor: '#F5F3FF', borderLeftWidth: 4, borderLeftColor: '#4F46E5' },
+  unreadCard: { backgroundColor: '#EFF6FF', borderLeftWidth: 4, borderLeftColor: '#3B82F6' },
   avatarContainer: { position: 'relative' },
   avatarGradient: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
   unreadDot: { position: 'absolute', top: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#EF4444', borderWidth: 2, borderColor: '#fff' },

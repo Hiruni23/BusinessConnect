@@ -1,74 +1,74 @@
 // utils/matchAlgorithm.js
 
+const buildMatchResult = (score, matchReason) => ({
+  score,
+  matchReason,
+});
+
 export const calculateMatchScore = (pitch, investorPrefs) => {
   let score = 0;
-  let reasons = [];
+  const reasons = [];
 
-  // 1. Category Match (High Weight)
   if (investorPrefs.interests?.includes(pitch.category)) {
     score += 50;
-    reasons.push("Sector");
+    reasons.push("Strong category alignment");
   }
 
-  // 2. Funding Goal Alignment
   if (pitch.fundingGoal <= (investorPrefs.maxInvestment || Number.MAX_SAFE_INTEGER)) {
     score += 30;
-    reasons.push("Goal");
+    reasons.push("Within preferred investment range");
   }
 
-  // 3. Momentum (Social Proof)
   if (pitch.views > 50) {
     score += 10;
-    reasons.push("Traction");
+    reasons.push("Good traction and visibility");
   }
+
   if (pitch.interested > 5) {
     score += 10;
-    reasons.push("Momentum");
+    reasons.push("Healthy investor interest");
   }
 
-  const matchReason = reasons.length > 0 ? `Matched by: ${reasons.join(" + ")}` : "Discovered for you";
-  return { score, matchReason };
+  return buildMatchResult(score, reasons[0] || "Potential match");
 };
 
-export default function matchAlgorithm(currentUser, targetUsers) {
-  return targetUsers
-    .filter(u => u.id !== currentUser.id)
-    .map(u => {
+const matchAlgorithm = (entrepreneur, investorsList) => {
+  const entrepreneurInterests = entrepreneur?.interests || [entrepreneur?.category].filter(Boolean);
+  const entrepreneurFundingGoal = Number(entrepreneur?.fundingGoal || entrepreneur?.targetFunding || entrepreneur?.requestedAmount || 0);
+
+  return investorsList
+    .map((investor) => {
       let score = 0;
-      let reasons = [];
+      const reasons = [];
 
-      // Determine the current user's industry/categories
-      const myCategories = currentUser.categories || [];
-      if (currentUser.industry && !myCategories.includes(currentUser.industry)) {
-        myCategories.push(currentUser.industry);
-      }
-
-      const theirInterests = u.interests || [];
-      
-      const hasOverlap = myCategories.some(cat => theirInterests.includes(cat));
-      if (hasOverlap) {
+      if (entrepreneurInterests.length > 0 && investor.interests?.some((interest) => entrepreneurInterests.includes(interest))) {
         score += 50;
-        reasons.push("Industry");
+        reasons.push("Shares your industry focus");
       }
 
-      if (u.location && currentUser.location && u.location === currentUser.location) {
-        score += 20;
-        reasons.push("Location");
+      const maxInvestment = Number(investor.maxInvestment || investor.budget || 0);
+      if (entrepreneurFundingGoal && maxInvestment >= entrepreneurFundingGoal) {
+        score += 30;
+        reasons.push("Can support your funding goal");
       }
 
-      if (u.rating && u.rating > 4.0) {
-        score += 20;
-        reasons.push("Top Rated");
+      if (investor.location && entrepreneur.location && investor.location === entrepreneur.location) {
+        score += 10;
+        reasons.push("Located in your market");
       }
 
-      // Add a baseline if no strong match, just to show the UI working
-      if (score === 0) {
-        score = Math.floor(Math.random() * 20) + 40; 
+      if (investor.experience || investor.stageFocus) {
+        score += 10;
+        reasons.push("Relevant investor profile");
       }
-      
-      const matchReason = reasons.length > 0 ? `Matched by: ${reasons.join(" + ")}` : "Discovered for you";
 
-      return { ...u, score: Math.min(score, 99), matchReason };
+      return {
+        ...investor,
+        score,
+        matchReason: reasons[0] || "Potential match",
+      };
     })
     .sort((a, b) => b.score - a.score);
-}
+};
+
+export default matchAlgorithm;
