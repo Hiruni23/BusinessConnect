@@ -2,10 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Dimensions,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -21,7 +23,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- FIREBASE IMPORTS ---
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebaseConfig';
+import { auth, db } from '../../firebaseConfig';
+
+const { width } = Dimensions.get("window");
 
 const SignUpScreen = () => {
   const router = useRouter();
@@ -32,7 +36,15 @@ const SignUpScreen = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState('entrepreneur');
   const [loading, setLoading] = useState(false);
+
+  const roles = [
+    { id: 'entrepreneur', title: 'Entrepreneur', icon: 'rocket-outline' },
+    { id: 'investor', title: 'Investor', icon: 'cash-outline' },
+    { id: 'customer', title: 'Customer', icon: 'cart-outline' },
+    { id: 'stakeholder', title: 'Stakeholder', icon: 'shield-checkmark-outline' }
+  ];
 
   // SIGNUP HANDLER
   const handleSignUp = async () => {
@@ -49,7 +61,6 @@ const SignUpScreen = () => {
       Alert.alert("Error", "Password should be at least 6 characters.");
       return;
     }
-    // Optional: Basic phone length validation
     if (phoneNumber.length < 10) {
         Alert.alert("Error", "Please enter a valid phone number.");
         return;
@@ -57,23 +68,40 @@ const SignUpScreen = () => {
 
     setLoading(true);
     try {
-      console.log('Starting signup...');
-      // 1. Create user in Firebase Auth only
+      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
-      console.log('User created:', user.uid);
+
+      // 2. Create user document in Firestore with role
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        fullName: name,
+        email: email.trim().toLowerCase(),
+        phoneNumber: phoneNumber.trim(),
+        role: selectedRole,
+        createdAt: serverTimestamp(),
+        setupComplete: false,
+      });
 
       setLoading(false);
       
-      // 2. Navigate to role selection page
-      router.replace({
-        pathname: '/auth/role-selection',
-        params: {
-          fullName: name,
-          email: email.trim().toLowerCase(),
-          phoneNumber: phoneNumber.trim(),
-        }
-      });
+      // 3. Navigate based on role
+      switch (selectedRole) {
+        case "entrepreneur":
+          router.replace("/entrepreneur/dashboard");
+          break;
+        case "investor":
+          router.replace("/investor/dashboard");
+          break;
+        case "customer":
+          router.replace("/customer/dashboard");
+          break;
+        case "stakeholder":
+          router.replace("/stakeholder/dashboard");
+          break;
+        default:
+          router.replace("/");
+      }
 
     } catch (error) {
       console.log('Signup error:', error);
@@ -132,6 +160,26 @@ const SignUpScreen = () => {
 
             <BlurView intensity={40} tint="dark" style={styles.formCard}>
               <Text style={styles.formTitle}>Sign Up</Text>
+
+              <Text style={styles.sectionLabel}>Select Your Role</Text>
+              <View style={styles.roleGrid}>
+                {roles.map((role) => (
+                  <TouchableOpacity
+                    key={role.id}
+                    style={[styles.roleOption, selectedRole === role.id && styles.roleOptionActive]}
+                    onPress={() => setSelectedRole(role.id)}
+                  >
+                    <Ionicons 
+                      name={role.icon} 
+                      size={18} 
+                      color={selectedRole === role.id ? "#fff" : "#94A3B8"} 
+                    />
+                    <Text style={[styles.roleLabel, selectedRole === role.id && styles.roleLabelActive]}>
+                      {role.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <View style={{ marginTop: 10 }}>
                 {/* Name Input */}
