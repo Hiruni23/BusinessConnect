@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { collection, doc, onSnapshot, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, doc, onSnapshot, orderBy, query, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from '../firebaseConfig';
 
 function isUnread(item) {
@@ -52,7 +52,10 @@ export default function Notifications() {
         setNotifications(data);
         setLoading(false);
       },
-      () => setLoading(false),
+      (error) => {
+        console.error('Customer notifications listener failed:', error);
+        setLoading(false);
+      },
     );
 
     return unsubscribe;

@@ -1,22 +1,21 @@
-import React, { useState, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  StatusBar,
-  Dimensions,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
-import { doc, getDoc, updateDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 
 const { width } = Dimensions.get('window');
@@ -47,6 +46,9 @@ export default function ProfessionalInvestorProfile() {
       if (docSnap.exists()) {
         setUserData({ ...userData, ...docSnap.data(), email: user.email });
       }
+      setLoading(false);
+    }, (error) => {
+      console.error("Investor profile listener failed:", error);
       setLoading(false);
     });
 

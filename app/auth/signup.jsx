@@ -1,34 +1,32 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  Image,
-  TextInput,
-  TouchableOpacity,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-  ActivityIndicator
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- FIREBASE IMPORTS ---
-import { auth, db } from '../../firebaseConfig';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../../firebaseConfig';
 
 const SignUpScreen = () => {
   const router = useRouter();
 
   // STATE FOR INPUTS
-  const [selectedRole, setSelectedRole] = useState('entrepreneur');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -36,19 +34,11 @@ const SignUpScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ROLES DATA
-  const roles = [
-    { id: 'entrepreneur', label: 'Entrepreneur', icon: 'rocket-outline' },
-    { id: 'investor', label: 'Investor', icon: 'trending-up-outline' },
-    { id: 'stakeholder', label: 'Stakeholder', icon: 'shield-checkmark-outline' },
-    { id: 'customer', label: 'Customer', icon: 'cart-outline' },
-  ];
-
   // SIGNUP HANDLER
   const handleSignUp = async () => {
     // Basic Validation
-    if (!name || !email || !phoneNumber || !password || !confirmPassword || !selectedRole) {
-      Alert.alert("Error", "Please fill in all fields and select a role.");
+    if (!name || !email || !phoneNumber || !password || !confirmPassword) {
+      Alert.alert("Error", "Please fill in all fields.");
       return;
     }
     if (password !== confirmPassword) {
@@ -68,31 +58,22 @@ const SignUpScreen = () => {
     setLoading(true);
     try {
       console.log('Starting signup...');
-      // 1. Create user in Firebase Auth
+      // 1. Create user in Firebase Auth only
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
       console.log('User created:', user.uid);
 
-      // 2. Save additional info to Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        fullName: name,
-        email: email.trim().toLowerCase(),
-        phoneNumber: phoneNumber.trim(),
-        role: selectedRole, // ✅ Role saved directly at signup
-        createdAt: serverTimestamp(),
-        setupComplete: false, 
-      });
-      console.log('User data saved to Firestore with role:', selectedRole);
-
       setLoading(false);
       
-      // 3. Navigate to appropriate dashboard
-      const dashboard = selectedRole === 'entrepreneur' ? '/entrepreneur/dashboard' : 
-                        selectedRole === 'investor' ? '/investor/dashboard' :
-                        selectedRole === 'customer' ? '/customer/dashboard' : '/stakeholder/dashboard';
-      
-      router.replace(dashboard);
+      // 2. Navigate to role selection page
+      router.replace({
+        pathname: '/auth/role-selection',
+        params: {
+          fullName: name,
+          email: email.trim().toLowerCase(),
+          phoneNumber: phoneNumber.trim(),
+        }
+      });
 
     } catch (error) {
       console.log('Signup error:', error);
@@ -151,33 +132,6 @@ const SignUpScreen = () => {
 
             <BlurView intensity={40} tint="dark" style={styles.formCard}>
               <Text style={styles.formTitle}>Sign Up</Text>
-
-              {/* Role Selection */}
-              <Text style={styles.sectionLabel}>Select Your Role</Text>
-              <View style={styles.roleGrid}>
-                {roles.map((role) => (
-                  <TouchableOpacity
-                    key={role.id}
-                    style={[
-                      styles.roleOption,
-                      selectedRole === role.id && styles.roleOptionActive
-                    ]}
-                    onPress={() => setSelectedRole(role.id)}
-                  >
-                    <Ionicons 
-                      name={role.icon} 
-                      size={20} 
-                      color={selectedRole === role.id ? '#fff' : '#94A3B8'} 
-                    />
-                    <Text style={[
-                      styles.roleLabel,
-                      selectedRole === role.id && styles.roleLabelActive
-                    ]}>
-                      {role.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
 
               <View style={{ marginTop: 10 }}>
                 {/* Name Input */}

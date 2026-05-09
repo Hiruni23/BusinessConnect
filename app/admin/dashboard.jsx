@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, StatusBar, Dimensions, Platform } from 'react-native';
-import { collection, query, onSnapshot, doc, getDocs, limit, orderBy } from 'firebase/firestore';
-import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { auth, db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -22,19 +21,24 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     // Real-time stats
+    const handleListenerError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setLoading(false);
+    };
+
     const unsubUsers = onSnapshot(collection(db, "users"), (snap) => {
       setStats(prev => ({ ...prev, users: snap.size }));
-    });
+    }, (error) => handleListenerError("Users", error));
 
     const unsubProducts = onSnapshot(collection(db, "products"), (snap) => {
       const pending = snap.docs.filter(d => d.data().status === 'pending').length;
       setStats(prev => ({ ...prev, products: snap.size, pendingProducts: pending }));
-    });
+    }, (error) => handleListenerError("Products", error));
 
     const unsubOrders = onSnapshot(collection(db, "orders"), (snap) => {
       setStats(prev => ({ ...prev, orders: snap.size }));
       setLoading(false);
-    });
+    }, (error) => handleListenerError("Orders", error));
 
     return () => {
       unsubUsers();

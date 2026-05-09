@@ -14,7 +14,7 @@ export const calculateMatchScore = (pitch, investorPrefs) => {
     reasons.push("Strong category alignment");
   }
 
-  if (pitch.fundingGoal <= investorPrefs.maxInvestment) {
+  if (pitch.fundingGoal <= (investorPrefs.maxInvestment || Number.MAX_SAFE_INTEGER)) {
     score += 30;
     reasons.push("Within preferred investment range");
   }

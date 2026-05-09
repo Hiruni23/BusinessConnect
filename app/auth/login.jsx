@@ -1,3 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,11 +17,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 
 // --- FIREBASE IMPORTS ---
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -65,9 +65,37 @@ const LoginScreen = () => {
 
       console.log("Logged in user:", user.email);
       setLoading(false);
-      
-      // Note: Redirection is now handled automatically by the Root Layout 
-      // based on the user's role in Firestore.
+
+      // Check if user has completed setup
+      const roleRoutes = {
+        entrepreneur: '/entrepreneur/dashboard',
+        investor: '/investor/dashboard',
+        stakeholder: '/stakeholder/dashboard',
+        customer: '/(tabs)/dashboard',
+      };
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+
+      if (userDoc.exists()) {
+        const role = userDoc.data().role;
+        const route = roleRoutes[role];
+
+        if (route) {
+          router.replace(route);
+        } else {
+          // Allow role selection as fallback if role is missing
+          router.replace({
+            pathname: '/auth/role-selection',
+            params: {
+              fullName: userDoc.data().fullName || user.displayName || '',
+              email: userDoc.data().email || user.email,
+              phoneNumber: userDoc.data().phoneNumber || '',
+            }
+          });
+        }
+      } else {
+        Alert.alert("Error", "User profile not found. Please contact support.");
+      }
     } catch (error) {
       console.log('Login error:', error);
       setLoading(false);
