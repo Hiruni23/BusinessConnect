@@ -97,7 +97,13 @@ export default function EntrepreneurDashboard() {
     });
 
     const mountedAt = new Date();
-    const qLatestNotif = query(collection(db, "notifications"), where("userId", "==", user.uid), where("createdAt", ">", mountedAt), orderBy("createdAt", "desc"), limit(1));
+    const qLatestNotif = query(
+      collection(db, "notifications"),
+      where("userId", "==", user.uid),
+      where("createdAt", ">", mountedAt),
+      orderBy("createdAt", "desc"),
+      limit(1)
+    );
     const unsubLatestNotif = onSnapshot(qLatestNotif, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
@@ -110,6 +116,8 @@ export default function EntrepreneurDashboard() {
           }
         }
       });
+    }, (error) => {
+      console.error("Latest notification listener failed:", error);
     });
 
     const qChats = query(collection(db, "chats"), where("entrepreneurId", "==", user.uid), orderBy("updatedAt", "desc"));
@@ -173,10 +181,10 @@ export default function EntrepreneurDashboard() {
             onPress={() => router.push({ pathname: "/entrepreneur/investment-success-celebration", params: { amount: totalFunding, investor: "Total Portfolio" } })}
           >
             <View style={styles.heroCard}>
-              <LinearGradient colors={['#4F46E5', '#3730A3']} style={StyleSheet.absoluteFill} />
+              <LinearGradient colors={['#4F46E5', '#2563EB']} style={StyleSheet.absoluteFill} />
               <View style={styles.heroHeader}>
                 <Text style={styles.heroLabelLight}>Total Capital Secured</Text>
-                <View style={styles.heroIconCircle}><Ionicons name="trending-up" size={20} color="#10B981" /></View>
+                <View style={styles.heroIconCircle}><Ionicons name="trending-up" size={20} color="#FFFFFF" /></View>
               </View>
               <Text style={styles.heroValueLight}>${totalFunding.toLocaleString()}</Text>
               <View style={styles.heroFooter}>
@@ -236,7 +244,7 @@ export default function EntrepreneurDashboard() {
             </View>
             <View style={styles.statBoxWrapper}>
               <View style={styles.statBox}>
-                <Ionicons name="rocket-outline" size={20} color="#EC4899" />
+                <Ionicons name="rocket-outline" size={20} color="#4F46E5" />
                 <Text style={styles.statNumber}>{pitches.filter((p) => isOpenStatus(p.status)).length}</Text>
                 <Text style={styles.statTitle}>Live Pitches</Text>
               </View>
@@ -348,7 +356,7 @@ const BottomNavigation = ({ router }) => (
     <TouchableOpacity onPress={() => router.push("/entrepreneur/my-pitches")}><NavItem icon="briefcase" /></TouchableOpacity>
     <View style={{width: 60}} />
     <TouchableOpacity style={styles.centerFab} onPress={() => router.push("/auth/investor-selection")}>
-      <LinearGradient colors={['#4F46E5', '#3730A3']} style={styles.fabGradient}>
+      <LinearGradient colors={['#4F46E5', '#2563EB']} style={styles.fabGradient}>
         <Ionicons name="add" size={32} color="#fff" />
       </LinearGradient>
     </TouchableOpacity>
@@ -381,7 +389,7 @@ const styles = StyleSheet.create({
   heroCard: { marginHorizontal: 20, marginTop: 25, borderRadius: 32, padding: 25, overflow: 'hidden', elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 10 } },
   heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroLabelLight: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  heroIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(16, 185, 129, 0.2)', justifyContent: 'center', alignItems: 'center' },
+  heroIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.2)', justifyContent: 'center', alignItems: 'center' },
   heroValueLight: { color: '#fff', fontSize: 44, fontWeight: '900', marginVertical: 12 },
   heroFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
   heroSubTextLight: { color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600' },

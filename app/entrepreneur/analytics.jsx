@@ -141,14 +141,14 @@ export default function AdvancedAnalytics() {
         <Text style={styles.chartTitle}>Engagement Trends</Text>
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}><View style={[styles.dot, {backgroundColor: '#4F46E5'}]}/><Text style={styles.legendText}>Views</Text></View>
-          <View style={styles.legendItem}><View style={[styles.dot, {backgroundColor: '#10B981'}]}/><Text style={styles.legendText}>PDFs</Text></View>
+          <View style={styles.legendItem}><View style={[styles.dot, {backgroundColor: '#3B82F6'}]}/><Text style={styles.legendText}>PDFs</Text></View>
         </View>
         
         <LineChart
           data={lineDataViews}
           data2={lineDataPDFs}
           color1="#4F46E5"
-          color2="#10B981"
+          color2="#3B82F6"
           thickness1={3}
           thickness2={3}
           curved
@@ -161,7 +161,7 @@ export default function AdvancedAnalytics() {
           initialSpacing={10}
           spacing={ (screenWidth - 100) / 7 }
           dataPointsColor1="#4F46E5"
-          dataPointsColor2="#10B981"
+          dataPointsColor2="#3B82F6"
         />
       </View>
 

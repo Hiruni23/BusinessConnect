@@ -65,25 +65,25 @@ export default function CreatePitch() {
   const categoryConfig = {
     "Education & Training": {
       image: require("../../assets/categories/education.png"),
-      colors: ["#2E4DA7", "#0439c0"],
+      colors: ["#2E4DA7", "#1E40AF"],
     },
     "Fashion & Apparel": {
       image: require("../../assets/categories/fashion.png"),
-      colors: ["#8B5CF6", "#bc1e6d"],
+      colors: ["#2E4DA7", "#1E40AF"],
     },
     "Food & Beverage": {
       image: require("../../assets/categories/food.png"),
-      colors: ["#EF4444", "#F97316"],
+      colors: ["#2E4DA7", "#1E40AF"],
     },
     "Technology & Software": {
       image: require("../../assets/categories/tech.png"),
-      colors: ["#111827", "#06B6D4"],
+      colors: ["#2E4DA7", "#1E40AF"],
     },
   };
 
   const config = categoryConfig[category] || {
     image: require("../../assets/categories/default.png"),
-    colors: ["#4F46E5", "#06B6D4"],
+    colors: ["#2E4DA7", "#1E40AF"],
   };
 
   const handleBack = () => {

@@ -172,7 +172,7 @@ export default function ManageProducts() {
             </View>
 
             <TouchableOpacity style={styles.submitBtn} onPress={handleAddProduct}>
-               <LinearGradient colors={['#1E293B', '#334155']} style={styles.submitGradient}>
+               <LinearGradient colors={['#2563EB', '#1E40AF']} style={styles.submitGradient}>
                   <Text style={styles.submitText}>Submit for Approval</Text>
                </LinearGradient>
             </TouchableOpacity>
@@ -195,7 +195,7 @@ export default function ManageProducts() {
             </View>
 
             {loading ? (
-              <View style={styles.center}><ActivityIndicator size="large" color="#6366F1" /></View>
+              <View style={styles.center}><ActivityIndicator size="large" color="#2563EB" /></View>
             ) : (
               <FlatList
                 data={products}
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   productName: { fontSize: 16, fontWeight: '800', color: '#1E293B', flex: 1 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  productPrice: { fontSize: 18, fontWeight: '900', color: '#6366F1', marginBottom: 4 },
+  productPrice: { fontSize: 18, fontWeight: '900', color: '#2563EB', marginBottom: 4 },
   productDesc: { fontSize: 12, color: '#64748B', lineHeight: 18, marginBottom: 8 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   categoryText: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase' },
