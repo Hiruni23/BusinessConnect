@@ -23,7 +23,7 @@ const { width } = Dimensions.get("window");
 export default function RoleSelection() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { fullName, email, phoneNumber } = params;
+  const { uid, fullName, email, phoneNumber } = params;
   const [selectedRole, setSelectedRole] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,18 +36,19 @@ export default function RoleSelection() {
     try {
       setIsSubmitting(true);
       const user = auth.currentUser;
+      const userId = (user && user.uid) || uid;
 
-      if (!user) {
+      if (!userId) {
         Alert.alert("Error", "User not authenticated");
         setIsSubmitting(false);
         return;
       }
 
       // ✅ Create user document in Firestore with all details
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        fullName: fullName || user.displayName || "User",
-        email: email || user.email,
+      await setDoc(doc(db, "users", userId), {
+        uid: userId,
+        fullName: fullName || (user && user.displayName) || "User",
+        email: email || (user && user.email) || '',
         phoneNumber: phoneNumber || "",
         role: selectedRole,
         createdAt: serverTimestamp(),
