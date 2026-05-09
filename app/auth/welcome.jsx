@@ -29,7 +29,9 @@ const WelcomeScreen = () => {
         
         <View style={styles.header}>
           <Text style={styles.welcomeText}>BusinessConnect</Text>
-          <Text style={styles.subtitleText}>Connecting Ideas, People, and Growth</Text>
+          <Text style={styles.subtitleText}>
+            The elite ecosystem for entrepreneurs to connect with investors and scale global impact.
+          </Text>
         </View>
 
         {/* --- GLOWING ROUND IMAGE SECTION --- */}
@@ -86,18 +88,19 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   welcomeText: {
-    fontSize: 36,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: -1,
     marginBottom: 12,
   },
   subtitleText: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.5)',
     textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 22,
+    paddingHorizontal: 50,
+    lineHeight: 24,
+    fontWeight: '500',
   },
   illustrationContainer: {
     width: width,
