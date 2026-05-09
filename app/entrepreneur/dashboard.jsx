@@ -1,37 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Dimensions
-} from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { signOut } from "firebase/auth";
-import { onAuthStateChanged } from "firebase/auth";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
-  collection,
-  doc, getDoc,
-  getCountFromServer,
-  limit,
-  onSnapshot,
-  query,
-  where,
-  orderBy
+    collection,
+    doc,
+    getCountFromServer,
+    getDoc,
+    limit,
+    onSnapshot,
+    orderBy,
+    query,
+    where
 } from "firebase/firestore";
-import { useEffect, useRef, useState } from "react";
-import { db, auth } from "../../firebaseConfig";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Dimensions,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificationBell from '../../components/NotificationBell';
+import { auth, db } from "../../firebaseConfig";
 import matchAlgorithm from "../../utils/matchAlgorithm";
 import AIChatModal from "../components/AIChatModal";
 import SideMenu from "../components/SideMenu";
-import NotificationBell from '../../components/NotificationBell';
 
 const { width } = Dimensions.get("window");
 

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 
 const Splash = () => {
@@ -80,7 +81,7 @@ const Splash = () => {
 
   return (
     <LinearGradient
-      colors={['#3B82F6', '#1E40AF', '#172554']}
+      colors={['#0F172A', '#1E3A8A', '#020617']}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
@@ -88,16 +89,16 @@ const Splash = () => {
       <SafeAreaView style={styles.contentContainer}>
         <Animated.View style={[styles.innerContent, { opacity: fadeAnim }]}>
           
-          {/* Logo with Glow */}
+          {/* Logo with Refined Glow */}
           <View style={styles.logoWrapper}>
             <View style={styles.glow} />
-            <View style={styles.logoCircle}>
+            <BlurView intensity={20} tint="light" style={styles.logoCircle}>
               <Image 
                 source={require('../assets/images/logo.png')} 
                 style={styles.logo}
                 resizeMode="contain"
               />
-            </View>
+            </BlurView>
           </View>
 
           {/* Branding */}
@@ -135,51 +136,56 @@ const styles = StyleSheet.create({
   logoWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
   },
   logoCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#FFFFFF',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   glow: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
     zIndex: 1,
   },
   logo: {
-    width: 90,
-    height: 90,
+    width: 130,
+    height: 130,
   },
   brandName: {
-    fontSize: 36,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: 10,
+    marginBottom: 8,
+    letterSpacing: 1,
   },
   slogan: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   pagination: {
     flexDirection: 'row',
-    marginTop: 80,
-    gap: 15,
+    marginTop: 100,
+    gap: 12,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FFFFFF',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3B82F6',
   },
 });
 
