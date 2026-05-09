@@ -1,23 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Dimensions,
-  Image,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Switch,
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, limit, orderBy, doc } from "firebase/firestore";
-import { db, auth } from "../../firebaseConfig";
 import { useTheme } from "../../context/ThemeContext";
+import { auth, db } from "../../firebaseConfig";
 
 const { width } = Dimensions.get("window");
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&q=80&w=400";
@@ -33,31 +32,60 @@ export default function CustomerDashboard() {
   const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
+    if (!user) {
+      setProducts([]);
+      setOrders([]);
+      setCartCount(0);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    const handleListenerError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setLoading(false);
+    };
+
     const qProducts = query(
       collection(db, "products"),
       where("status", "==", "approved"),
       orderBy("createdAt", "desc"),
       limit(6)
     );
-    const unsubProducts = onSnapshot(qProducts, (snap) =>
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    const unsubProducts = onSnapshot(
+      qProducts,
+      (snap) => {
+        setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (error) => handleListenerError("Products", error)
     );
 
     const qOrders = query(
       collection(db, "orders"),
-      where("userId", "==", user?.uid || ""),
+      where("userId", "==", user.uid),
       orderBy("createdAt", "desc"),
       limit(3)
     );
-    const unsubOrders = onSnapshot(qOrders, (snap) =>
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    const unsubOrders = onSnapshot(
+      qOrders,
+      (snap) => {
+        setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+      },
+      (error) => handleListenerError("Orders", error)
     );
 
-    const cartRef = doc(db, "cart", user?.uid || "dummy");
-    const unsubCart = onSnapshot(cartRef, (docSnap) => {
-      setCartCount(docSnap.exists() ? (docSnap.data().items || []).length : 0);
-      setLoading(false);
-    });
+    const cartRef = doc(db, "cart", user.uid);
+    const unsubCart = onSnapshot(
+      cartRef,
+      (docSnap) => {
+        setCartCount(docSnap.exists() ? (docSnap.data().items || []).length : 0);
+        setLoading(false);
+      },
+      (error) => handleListenerError("Cart", error)
+    );
 
     return () => { unsubProducts(); unsubOrders(); unsubCart(); };
   }, [user]);

@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Alert, TextInput, Dimensions } from 'react-native';
-import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, FlatList, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -18,6 +18,9 @@ export default function UserManagement() {
     const q = query(collection(db, "users"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => {
+      console.error("User management listener failed:", error);
       setLoading(false);
     });
 
@@ -45,19 +48,19 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(u => 
-    u.email?.toLowerCase().includes(search.toLowerCase()) || 
-    u.displayName?.toLowerCase().includes(search.toLowerCase())
+     u.email?.toLowerCase().includes(search.toLowerCase()) || 
+     u.fullName?.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderUser = ({ item }) => (
     <View style={styles.userCard}>
       <View style={[styles.avatar, { backgroundColor: getRoleColor(item.role) + '20' }]}>
          <Text style={[styles.avatarText, { color: getRoleColor(item.role) }]}>
-            {item.displayName?.charAt(0) || 'U'}
+          {item.fullName?.charAt(0) || 'U'}
          </Text>
       </View>
       <View style={styles.userInfo}>
-         <Text style={styles.userName}>{item.displayName || 'Anonymous'}</Text>
+        <Text style={styles.userName}>{item.fullName || 'User'}</Text>
          <Text style={styles.userEmail}>{item.email}</Text>
          <View style={[styles.roleBadge, { backgroundColor: getRoleColor(item.role) + '15' }]}>
             <Text style={[styles.roleText, { color: getRoleColor(item.role) }]}>{item.role?.toUpperCase()}</Text>

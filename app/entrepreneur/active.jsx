@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { collection, query, where, onSnapshot, getCountFromServer } from "firebase/firestore";
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, getCountFromServer, onSnapshot, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    FlatList,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 
 export default function ActivePitches() {
@@ -69,6 +69,9 @@ export default function ActivePitches() {
       } finally {
         setLoading(false);
       }
+    }, (error) => {
+      console.error("Active pitches listener failed:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

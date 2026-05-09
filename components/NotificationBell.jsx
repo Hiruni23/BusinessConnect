@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../firebaseConfig';
 
 function isUnread(item) {
@@ -39,13 +39,20 @@ export default function NotificationBell({ routePath = '/notifications', color =
 
     const q = query(collection(db, 'notifications'), where('userId', '==', userId));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const unreadCount = snapshot.docs.reduce((total, item) => {
-        return total + (isUnread(item.data()) ? 1 : 0);
-      }, 0);
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const unreadCount = snapshot.docs.reduce((total, item) => {
+          return total + (isUnread(item.data()) ? 1 : 0);
+        }, 0);
 
-      setCount(unreadCount);
-    });
+        setCount(unreadCount);
+      },
+      (error) => {
+        console.error('Notification bell listener failed:', error);
+        setCount(0);
+      },
+    );
 
     return unsubscribe;
   }, [userId]);
