@@ -5,6 +5,20 @@ const buildMatchResult = (score, matchReason) => ({
   matchReason,
 });
 
+const normalizeRole = (role) => String(role || "").toLowerCase();
+
+const getProfileInterests = (profile) => {
+  if (Array.isArray(profile?.interests) && profile.interests.length > 0) {
+    return profile.interests;
+  }
+
+  return [profile?.category, profile?.industry].filter(Boolean);
+};
+
+const getFundingCapacity = (profile) => Number(profile?.maxInvestment || profile?.budget || Number.MAX_SAFE_INTEGER);
+
+const getFundingGoal = (profile) => Number(profile?.fundingGoal || profile?.targetFunding || profile?.requestedAmount || 0);
+
 export const calculateMatchScore = (pitch, investorPrefs) => {
   let score = 0;
   const reasons = [];
@@ -33,21 +47,40 @@ export const calculateMatchScore = (pitch, investorPrefs) => {
 };
 
 const matchAlgorithm = (entrepreneur, investorsList) => {
-  const entrepreneurInterests = entrepreneur?.interests || [entrepreneur?.category].filter(Boolean);
-  const entrepreneurFundingGoal = Number(entrepreneur?.fundingGoal || entrepreneur?.targetFunding || entrepreneur?.requestedAmount || 0);
+  const role = normalizeRole(entrepreneur?.role);
+  const sourceInterests = getProfileInterests(entrepreneur);
+  const sourceFundingGoal = getFundingGoal(entrepreneur);
+  const sourceFundingCapacity = getFundingCapacity(entrepreneur);
 
   return investorsList
     .map((investor) => {
       let score = 0;
       const reasons = [];
+      const targetInterests = getProfileInterests(investor);
+      const targetFundingCapacity = getFundingCapacity(investor);
+      const targetFundingGoal = getFundingGoal(investor);
 
-      if (entrepreneurInterests.length > 0 && investor.interests?.some((interest) => entrepreneurInterests.includes(interest))) {
+      if (sourceInterests.length > 0 && targetInterests.some((interest) => sourceInterests.includes(interest))) {
         score += 50;
-        reasons.push("Shares your industry focus");
+        reasons.push(role === "investor" ? "Shares your business focus" : "Shares your industry focus");
       }
 
-      const maxInvestment = Number(investor.maxInvestment || investor.budget || 0);
-      if (entrepreneurFundingGoal && maxInvestment >= entrepreneurFundingGoal) {
+      if (role === "investor") {
+        if (sourceFundingCapacity && targetFundingGoal && sourceFundingCapacity >= targetFundingGoal) {
+          score += 30;
+          reasons.push("Fits your budget range");
+        }
+
+        if (investor.location && entrepreneur.location && investor.location === entrepreneur.location) {
+          score += 10;
+          reasons.push("Located in your market");
+        }
+
+        if (investor.experience || investor.stageFocus) {
+          score += 10;
+          reasons.push("Relevant business profile");
+        }
+      } else if (targetFundingCapacity >= sourceFundingGoal && sourceFundingGoal > 0) {
         score += 30;
         reasons.push("Can support your funding goal");
       }
@@ -59,12 +92,17 @@ const matchAlgorithm = (entrepreneur, investorsList) => {
 
       if (investor.experience || investor.stageFocus) {
         score += 10;
-        reasons.push("Relevant investor profile");
+        reasons.push(role === "investor" ? "Relevant business profile" : "Relevant investor profile");
+      }
+
+      if (investor.rating) {
+        score += investor.rating * 3;
       }
 
       return {
         ...investor,
         score,
+        matchPercent: Math.min(score, 100),
         matchReason: reasons[0] || "Potential match",
       };
     })
