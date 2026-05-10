@@ -1,138 +1,93 @@
 # BusinessConnect 🚀  
 A Multi-Role Business Networking, Investment & Marketplace Platform
 
-## 📌 Project Overview
-**BusinessConnect** is a mobile-based business collaboration platform developed to connect **Entrepreneurs**, **Investors**, **Customers**, and **Stakeholders** within a unified digital ecosystem.  
-The system provides a complete solution for business networking, marketplace transactions, investment opportunities, real-time notifications, and administrative monitoring.
+## 📌 Overview
+**BusinessConnect** is a mobile and web-based platform developed to connect **Entrepreneurs**, **Investors**, **Customers**, and **Stakeholders**.  
+It provides business networking, investment management, a marketplace system, AI-based recommendations, and an admin dashboard.
 
-This project was developed as part of the **PUSL3190 Final Year Project**.
-
----
-
-## 🎯 Project Objectives
-- Develop a multi-role platform supporting Entrepreneurs, Investors, Customers, Stakeholders, and Admins.
-- Provide an integrated marketplace system for buying and selling products.
-- Allow entrepreneurs to pitch business ideas and attract investors.
-- Enable investors to browse business opportunities and invest.
-- Integrate a secure payment system using **Stripe Sandbox**.
-- Implement an AI-based recommendation system for matching investors and businesses.
-- Provide an Admin Dashboard for managing users, products, and system activities.
-- Improve system reliability using testing and CI/CD automation.
+This project was developed as part of the **PUSL3190 Academic Project**.
 
 ---
 
-## 👥 User Roles & Features
-
-### 👨‍💼 Entrepreneur
-- Register/Login with role-based access
-- Create business pitch / business profile
-- Add and manage marketplace products
-- View orders and transactions
-- Receive real-time notifications
-- View recommended investors using AI matching system
-
-### 💰 Investor
-- Register/Login with investor role
-- Browse entrepreneur business ideas
-- Make investments
-- View investment history
-- Receive real-time notifications
-- View recommended businesses using AI matching system
-
-### 🛒 Customer
-- Browse marketplace products
-- Add items to cart
-- Checkout and make payments
-- View order history
-- Receive order notifications
-
-### 🧑‍💻 Stakeholder
-- View business activities
-- Track marketplace progress
-- Monitor investment performance
-
-### 🛠 Admin Dashboard (Web)
-- Manage users (view/edit/delete)
-- Manage investors and entrepreneurs
-- Manage marketplace products and categories
-- Manage orders and transactions
-- View analytics and reports (charts)
-- Send notifications and monitor system operations
-
----
-
-## 🤖 AI Recommendation System
-BusinessConnect includes an **AI-based Matching Algorithm** to recommend:
-- **Investors to Entrepreneurs**
-- **Businesses to Investors**
-
-The algorithm uses multiple factors such as:
-- Industry/Interest matching
-- Location similarity
-- Budget compatibility
-- Rating/engagement score
-
-Recommendations are displayed in real-time using Firebase integration.
-
----
-
-## 🏪 Marketplace Module
-Marketplace features include:
-- Product listing system
-- Category-based browsing
-- Search and filter options
-- Cart and checkout system
-- Order tracking and order history
-- Admin-controlled product management
-
----
-
-## 💳 Payment Integration (Stripe Sandbox)
-Stripe Sandbox is integrated for payment simulation.
-- Secure checkout flow
-- Transaction validation
-- Order confirmation after payment
-
-> Note: This project uses Stripe test keys for sandbox testing (no real payments).
-
----
-
-## 🔔 Notification System
-The system supports real-time notifications for:
-- New orders
-- Investment updates
-- Admin alerts
-- User connection requests
-
-Firebase Firestore is used to store and update notifications dynamically.
+## ✨ Key Features
+- Multi-role Authentication (Entrepreneur / Investor / Customer / Stakeholder)
+- Marketplace (Products, Cart, Checkout, Orders)
+- Stripe Payment Integration (Sandbox)
+- AI-Based Recommendation System (Investor ↔ Business Matching)
+- Real-time Notifications (Firebase Firestore)
+- Web Admin Dashboard (User & Marketplace Management)
+- Firebase Backend Integration (Auth, Firestore, Storage, Functions)
+- Unit Testing (Jest) + CI/CD (GitHub Actions)
 
 ---
 
 ## 🛠 Technologies Used
-
-### Mobile Application (Frontend)
 - React Native (Expo)
-- React Navigation
-- JavaScript (JSX)
-
-### Backend
-- Firebase Authentication
-- Firebase Firestore Database
-- Firebase Storage
-
-### Payment
-- Stripe API (Sandbox Mode)
-
-### Admin Dashboard (Web)
-- React.js
-- Firebase Firestore
-
-### Tools
-- Git & GitHub
+- React.js (Admin Dashboard - Vite)
+- Firebase (Auth, Firestore, Storage, Cloud Functions)
+- Stripe Sandbox
+- Jest (Testing)
 - GitHub Actions (CI/CD)
-- Jest (Unit Testing)
-- VS Code
 
 ---
 
-## 📂 Project Structure (Main)
+## 📂 Project Structure
+
+BUSINESSCONNECT/
+│── admin-dashboard/ # Web Admin Panel
+│── app/ # Mobile App (Expo Router)
+│── assets/
+│── components/
+│── context/
+│── functions/ # Firebase Cloud Functions
+│── services/
+│── styles/
+│── utils/
+│── firebaseConfig.ts
+│── firestore.rules
+│── package.json
+│── README.md
+
+
+---
+
+# 📱 Mobile App Setup
+
+## Install Dependencies
+```bash
+npm install
+Run Mobile App
+npx expo start
+🖥 Admin Dashboard Setup
+Go to Admin Dashboard
+cd admin-dashboard
+Install Dependencies
+npm install
+Run Admin Dashboard
+npm run dev
+
+Runs on:
+
+http://localhost:5173
+☁️ Firebase Functions Setup (Optional)
+cd functions
+npm install
+firebase deploy --only functions
+💳 Stripe Sandbox Test Card
+Card Number: 4242 4242 4242 4242
+Expiry: Any future date
+CVC: Any 3 digits
+🧪 Testing
+Run Unit Tests
+npm test
+
+CI/CD is configured using GitHub Actions.
+
+👩‍🏫 Supervisor
+
+Ms. Dharani Ranasinghe
+
+📌 Project Type
+
+Final Year Academic Project
+Module: PUSL3190
