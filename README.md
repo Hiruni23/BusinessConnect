@@ -58,6 +58,7 @@ BUSINESSCONNECT/
 npm install
 Run Mobile App
 npx expo start
+---
 🖥 Admin Dashboard Setup
 Go to Admin Dashboard
 cd admin-dashboard
@@ -65,18 +66,19 @@ Install Dependencies
 npm install
 Run Admin Dashboard
 npm run dev
-
 Runs on:
-
 http://localhost:5173
+---
 ☁️ Firebase Functions Setup (Optional)
 cd functions
 npm install
 firebase deploy --only functions
+---
 💳 Stripe Sandbox Test Card
 Card Number: 4242 4242 4242 4242
 Expiry: Any future date
 CVC: Any 3 digits
+---
 🧪 Testing
 Run Unit Tests
 npm test
@@ -84,7 +86,6 @@ npm test
 CI/CD is configured using GitHub Actions.
 
 👩‍🏫 Supervisor
-
 Ms. Dharani Ranasinghe
 
 📌 Project Type
