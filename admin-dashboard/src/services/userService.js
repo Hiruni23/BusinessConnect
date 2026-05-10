@@ -43,7 +43,7 @@ export function subscribeToUsers(callback) {
 
 export function subscribeToInvestors(callback) {
   const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('role', '==', 'Investor'));
+  const q = query(usersRef, where('role', 'in', ['Investor', 'investor']));
 
   return onSnapshot(
     q,

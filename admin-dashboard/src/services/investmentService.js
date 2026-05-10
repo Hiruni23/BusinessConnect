@@ -51,12 +51,13 @@ export function subscribeToAllInvestments(callback) {
 }
 
 export async function releaseInvestment(investment) {
-  const { id, amount, entrepreneurId, projectId } = investment;
+  const { id, amount } = investment;
+  // Fallback to businessId if entrepreneurId is missing (from direct connections)
+  const entrepreneurId = investment.entrepreneurId || investment.businessId;
+  const projectId = investment.projectId || 'unknown';
   
   const investmentRef = doc(db, 'investments', id);
-  const walletRef = doc(db, 'wallets', entrepreneurId);
-  const projectRef = doc(db, 'pitches', projectId);
-
+  
   // Using a transaction to ensure atomic updates
   await runTransaction(db, async (transaction) => {
     // 1. Update investment status
@@ -65,15 +66,22 @@ export async function releaseInvestment(investment) {
       releasedAt: serverTimestamp()
     });
 
-    // 2. Increment entrepreneur wallet balance
-    transaction.update(walletRef, {
-      balance: increment(amount)
-    });
+    // 2. Increment entrepreneur wallet balance (use set with merge in case wallet doesn't exist)
+    if (entrepreneurId) {
+      const walletRef = doc(db, 'wallets', entrepreneurId);
+      transaction.set(walletRef, {
+        balance: increment(amount),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
 
-    // 3. Update project raisedAmount
-    transaction.update(projectRef, {
-      raisedAmount: increment(amount),
-      updatedAt: serverTimestamp()
-    });
+    // 3. Update project raisedAmount (only if valid pitch)
+    if (projectId && projectId !== 'unknown') {
+      const projectRef = doc(db, 'pitches', projectId);
+      transaction.set(projectRef, {
+        raisedAmount: increment(amount),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    }
   });
 }
