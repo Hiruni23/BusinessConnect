@@ -131,10 +131,16 @@ export default function LightInvestorDashboard() {
                 <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.assetGradient}>
                   <Text style={styles.assetLabel}>Total Committed</Text>
                   <Text style={styles.assetValue}>${totalInvested.toLocaleString()}</Text>
-                  <TouchableOpacity style={styles.assetAction} onPress={() => router.push("/investor/investment-history")}>
-                    <Text style={styles.assetActionText}>History</Text>
-                    <Ionicons name="chevron-forward" size={14} color="#FFF" />
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                    <TouchableOpacity style={styles.assetAction} onPress={() => router.push("/investor/investment-history")}>
+                      <Text style={styles.assetActionText}>History</Text>
+                      <Ionicons name="chevron-forward" size={14} color="#FFF" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.assetAction} onPress={() => router.push("/investor/analytics")}>
+                      <Text style={styles.assetActionText}>Analytics</Text>
+                      <Ionicons name="stats-chart" size={14} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                 </LinearGradient>
               </View>
               
@@ -167,18 +173,20 @@ export default function LightInvestorDashboard() {
             </View>
           </View>
 
-          {/* AI RECOMMENDED BUSINESSES CAROUSEL */}
+          {/* RECOMMENDED BUSINESSES CAROUSEL */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>AI Recommended</Text>
-              <Text style={styles.seeAll}>Powered by Gemini</Text>
+              <Text style={styles.sectionTitle}>Recommended Businesses</Text>
+              <TouchableOpacity onPress={() => router.push("/investor/recommendations") }>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 15 }}>
               {pitches.slice(0, 3).map(pitch => (
                 <View key={pitch.id} style={styles.aiCarouselCard}>
                   <View style={styles.aiBadge}>
                     <Ionicons name="sparkles" size={12} color="#10B981" />
-                    <Text style={styles.aiBadgeText}>AI Recommended</Text>
+                    <Text style={styles.aiBadgeText}>Recommended</Text>
                   </View>
                   <Text style={styles.oCategory}>{pitch.category?.toUpperCase() || "TECH"}</Text>
                   <Text style={styles.oTitle} numberOfLines={1}>{pitch.title}</Text>

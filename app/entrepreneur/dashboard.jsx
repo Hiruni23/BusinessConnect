@@ -54,15 +54,11 @@ export default function EntrepreneurDashboard() {
     return unsubscribe;
   }, []);
 
-  const isOpenStatus = (status) => ['open', 'pending', 'in review', 'review'].includes(String(status || '').toLowerCase());
-
   useEffect(() => {
-    if (!user) return;
-
-    const handleListenerError = (label, error) => {
-      console.error(`${label} listener failed:`, error);
-      setLoading(false);
-    };
+    if (!user) {
+      setUserData(null);
+      return;
+    }
 
     const fetchUserData = async () => {
       try {
@@ -74,19 +70,32 @@ export default function EntrepreneurDashboard() {
         console.error("Error fetching user data:", error);
       }
     };
+
     fetchUserData();
+  }, [user]);
+
+  const isOpenStatus = (status) => ['open', 'pending', 'in review', 'review'].includes(String(status || '').toLowerCase());
+
+  useEffect(() => {
+    if (!user) return;
+
+    const handleListenerError = (label, error) => {
+      console.error(`${label} listener failed:`, error);
+      setLoading(false);
+    };
 
     // Fetch recommended investors
     const qInvestors = query(collection(db, "users"), where("role", "in", ["investor", "Investor"]));
     const unsubInvestors = onSnapshot(qInvestors, (snap) => {
       try {
         const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const userDoc = snap.docs.find(d => d.id === user.uid);
-        const cUser = userDoc ? { id: userDoc.id, ...userDoc.data(), email: user.email } : null;
-        
-        if (cUser && cUser.role?.toLowerCase() === 'entrepreneur') {
+        const cUser = userData ? { id: user.uid, ...userData, email: user.email } : null;
+
+        if (cUser?.role?.toLowerCase() === 'entrepreneur') {
           const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
-          setRecommendedInvestors(matches);
+          setRecommendedInvestors(matches.slice(0, 5));
+        } else {
+          setRecommendedInvestors([]);
         }
       } catch (error) {
         console.error("Error processing investors:", error);
@@ -140,7 +149,7 @@ export default function EntrepreneurDashboard() {
     }, (error) => handleListenerError("Chats", error));
 
     return () => { unsubInvestors(); unsubPitches(); unsubLatestNotif(); unsubChats(); };
-  }, [user]);
+  }, [user, userData, user?.email, user?.uid]);
 
   const handleLogout = async () => {
     try { await signOut(auth); router.replace("/auth/login"); } catch (e) { console.error(e); }
@@ -213,7 +222,7 @@ export default function EntrepreneurDashboard() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recommended Investors</Text>
-                <TouchableOpacity onPress={() => router.push("/entrepreneur/ai-recommended-investors")}>
+                <TouchableOpacity onPress={() => router.push("/entrepreneur/recommendations")}> 
                   <Text style={styles.seeAll}>See All</Text>
                 </TouchableOpacity>
               </View>
