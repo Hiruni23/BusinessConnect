@@ -1,61 +1,138 @@
-# Welcome to your Expo app 👋
+# BusinessConnect 🚀  
+A Multi-Role Business Networking, Investment & Marketplace Platform
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## 📌 Project Overview
+**BusinessConnect** is a mobile-based business collaboration platform developed to connect **Entrepreneurs**, **Investors**, **Customers**, and **Stakeholders** within a unified digital ecosystem.  
+The system provides a complete solution for business networking, marketplace transactions, investment opportunities, real-time notifications, and administrative monitoring.
 
-## Get started
+This project was developed as part of the **PUSL3190 Final Year Project**.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 🎯 Project Objectives
+- Develop a multi-role platform supporting Entrepreneurs, Investors, Customers, Stakeholders, and Admins.
+- Provide an integrated marketplace system for buying and selling products.
+- Allow entrepreneurs to pitch business ideas and attract investors.
+- Enable investors to browse business opportunities and invest.
+- Integrate a secure payment system using **Stripe Sandbox**.
+- Implement an AI-based recommendation system for matching investors and businesses.
+- Provide an Admin Dashboard for managing users, products, and system activities.
+- Improve system reliability using testing and CI/CD automation.
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 👥 User Roles & Features
 
-## Push notifications
+### 👨‍💼 Entrepreneur
+- Register/Login with role-based access
+- Create business pitch / business profile
+- Add and manage marketplace products
+- View orders and transactions
+- Receive real-time notifications
+- View recommended investors using AI matching system
 
-`expo-notifications` remote push support does not run in Expo Go on SDK 53+. Use a development build instead:
+### 💰 Investor
+- Register/Login with investor role
+- Browse entrepreneur business ideas
+- Make investments
+- View investment history
+- Receive real-time notifications
+- View recommended businesses using AI matching system
 
-```bash
-npm run build:android:dev
-npm run start:dev-client
-```
+### 🛒 Customer
+- Browse marketplace products
+- Add items to cart
+- Checkout and make payments
+- View order history
+- Receive order notifications
 
-Install the development build on your device or emulator, then scan the QR code from the dev-client Metro session.
+### 🧑‍💻 Stakeholder
+- View business activities
+- Track marketplace progress
+- Monitor investment performance
 
-In the output, you'll find options to open the app in a
+### 🛠 Admin Dashboard (Web)
+- Manage users (view/edit/delete)
+- Manage investors and entrepreneurs
+- Manage marketplace products and categories
+- Manage orders and transactions
+- View analytics and reports (charts)
+- Send notifications and monitor system operations
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🤖 AI Recommendation System
+BusinessConnect includes an **AI-based Matching Algorithm** to recommend:
+- **Investors to Entrepreneurs**
+- **Businesses to Investors**
 
-## Get a fresh project
+The algorithm uses multiple factors such as:
+- Industry/Interest matching
+- Location similarity
+- Budget compatibility
+- Rating/engagement score
 
-When you're ready, run:
+Recommendations are displayed in real-time using Firebase integration.
 
-```bash
-npm run reset-project
-```
+---
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🏪 Marketplace Module
+Marketplace features include:
+- Product listing system
+- Category-based browsing
+- Search and filter options
+- Cart and checkout system
+- Order tracking and order history
+- Admin-controlled product management
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## 💳 Payment Integration (Stripe Sandbox)
+Stripe Sandbox is integrated for payment simulation.
+- Secure checkout flow
+- Transaction validation
+- Order confirmation after payment
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+> Note: This project uses Stripe test keys for sandbox testing (no real payments).
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🔔 Notification System
+The system supports real-time notifications for:
+- New orders
+- Investment updates
+- Admin alerts
+- User connection requests
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Firebase Firestore is used to store and update notifications dynamically.
+
+---
+
+## 🛠 Technologies Used
+
+### Mobile Application (Frontend)
+- React Native (Expo)
+- React Navigation
+- JavaScript (JSX)
+
+### Backend
+- Firebase Authentication
+- Firebase Firestore Database
+- Firebase Storage
+
+### Payment
+- Stripe API (Sandbox Mode)
+
+### Admin Dashboard (Web)
+- React.js
+- Firebase Firestore
+
+### Tools
+- Git & GitHub
+- GitHub Actions (CI/CD)
+- Jest (Unit Testing)
+- VS Code
+
+---
+
+## 📂 Project Structure (Main)
