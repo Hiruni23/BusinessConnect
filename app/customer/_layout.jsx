@@ -98,6 +98,14 @@ export default function CustomerLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="offers"
+        options={{
+          href: null,
+          tabBarStyle: { display: 'none' },
+        }}
+      />
       
       {/* HIDDEN UTILITY SCREENS */}
       <Tabs.Screen name="notifications" options={{ href: null }} />

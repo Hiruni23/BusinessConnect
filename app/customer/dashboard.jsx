@@ -2,16 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { collection, doc, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
     ActivityIndicator,
+    Animated,
     Dimensions,
     Image,
+    Modal,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     View
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,6 +33,26 @@ export default function CustomerDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const slideAnim = useRef(new Animated.Value(-width * 0.8)).current;
+
+  const openMenu = () => {
+    setIsMenuOpen(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeMenu = () => {
+    Animated.timing(slideAnim, {
+      toValue: -width * 0.8,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => setIsMenuOpen(false));
+  };
 
   useEffect(() => {
     if (!user) {
@@ -101,16 +124,18 @@ export default function CustomerDashboard() {
 
   const quickActions = isDark
     ? [
-        { icon: 'storefront-outline', label: 'Explore',  color: '#A78BFA', bg: '#3B0764', route: '/customer/marketplace' },
-        { icon: 'cart-outline',       label: 'Cart',     color: '#34D399', bg: '#052E16', route: '/customer/cart' },
-        { icon: 'receipt-outline',    label: 'Orders',   color: '#FCD34D', bg: '#451A03', route: '/customer/orders' },
-        { icon: 'notifications-outline', label: 'Alerts', color: '#F9A8D4', bg: '#500724', route: '/customer/notifications' },
+        { icon: 'storefront-outline', label: 'Explore',  color: '#60A5FA', bg: '#1E3A8A', route: '/customer/marketplace' },
+        { icon: 'pricetag-outline',   label: 'Offers',   color: '#FDBA74', bg: '#7C2D12', route: '/customer/offers' },
+        { icon: 'cart-outline',       label: 'Cart',     color: '#93C5FD', bg: '#172554', route: '/customer/cart' },
+        { icon: 'receipt-outline',    label: 'Orders',   color: '#38BDF8', bg: '#0C4A6E', route: '/customer/orders' },
+        { icon: 'notifications-outline', label: 'Alerts', color: '#818CF8', bg: '#312E81', route: '/customer/notifications' },
       ]
     : [
-        { icon: 'storefront-outline', label: 'Explore',  color: '#6366F1', bg: '#EEF2FF', route: '/customer/marketplace' },
-        { icon: 'cart-outline',       label: 'Cart',     color: '#10B981', bg: '#F0FDF4', route: '/customer/cart' },
-        { icon: 'receipt-outline',    label: 'Orders',   color: '#F59E0B', bg: '#FFFBEB', route: '/customer/orders' },
-        { icon: 'notifications-outline', label: 'Alerts', color: '#EC4899', bg: '#FDF2F8', route: '/customer/notifications' },
+        { icon: 'storefront-outline', label: 'Explore',  color: '#2563EB', bg: '#EFF6FF', route: '/customer/marketplace' },
+        { icon: 'pricetag-outline',   label: 'Offers',   color: '#F97316', bg: '#FFF7ED', route: '/customer/offers' },
+        { icon: 'cart-outline',       label: 'Cart',     color: '#3B82F6', bg: '#DBEAFE', route: '/customer/cart' },
+        { icon: 'receipt-outline',    label: 'Orders',   color: '#0284C7', bg: '#E0F2FE', route: '/customer/orders' },
+        { icon: 'notifications-outline', label: 'Alerts', color: '#4F46E5', bg: '#EEF2FF', route: '/customer/notifications' },
       ];
 
   const s = makeStyles(T, isDark);
@@ -130,9 +155,14 @@ export default function CustomerDashboard() {
 
           {/* ── HEADER ── */}
           <View style={s.header}>
-            <View>
-              <Text style={s.greetingText}>{getHour()}</Text>
-              <Text style={s.nameText}>{firstName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={openMenu} style={s.hamburgerBtn}>
+                <Ionicons name="menu" size={28} color={T.text} />
+              </TouchableOpacity>
+              <View>
+                <Text style={s.greetingText}>{getHour()}</Text>
+                <Text style={s.nameText}>{firstName}</Text>
+              </View>
             </View>
             <View style={s.headerActions}>
 
@@ -143,11 +173,11 @@ export default function CustomerDashboard() {
                     <Ionicons
                       name={isDark ? 'moon' : 'sunny'}
                       size={13}
-                      color={isDark ? '#A78BFA' : '#F59E0B'}
+                      color={isDark ? '#60A5FA' : '#F59E0B'}
                     />
                   </View>
                   <Ionicons name="sunny" size={12} color={isDark ? T.subtext : '#F59E0B'} style={{ position: 'absolute', left: 8 }} />
-                  <Ionicons name="moon"  size={12} color={isDark ? '#A78BFA' : T.subtext} style={{ position: 'absolute', right: 8 }} />
+                  <Ionicons name="moon"  size={12} color={isDark ? '#60A5FA' : T.subtext} style={{ position: 'absolute', right: 8 }} />
                 </View>
               </TouchableOpacity>
 
@@ -157,11 +187,8 @@ export default function CustomerDashboard() {
                   <View style={s.badge}><Text style={s.badgeText}>{cartCount}</Text></View>
                 )}
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/customer/profile')}>
-                <Image
-                  source={{ uri: user?.photoURL || `https://i.pravatar.cc/100?u=${user?.uid}` }}
-                  style={s.avatar}
-                />
+              <TouchableOpacity style={s.iconBtn} onPress={() => router.push('/customer/profile')}>
+                <Ionicons name="person-outline" size={22} color={T.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -169,7 +196,7 @@ export default function CustomerDashboard() {
           {/* ── STATS CARD ── */}
           <View style={s.cardWrap}>
             <LinearGradient
-              colors={isDark ? ['#4C1D95', '#1E1B4B', '#0D0D0D'] : ['#6366F1', '#8B5CF6']}
+              colors={isDark ? ['#1E3A8A', '#1E40AF', '#172554'] : ['#2563EB', '#3B82F6']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={s.heroCard}
             >
@@ -180,7 +207,7 @@ export default function CustomerDashboard() {
                   <Text style={s.heroTitle}>Your Activity</Text>
                 </View>
                 <View style={s.heroBadge}>
-                  <Ionicons name="pulse" size={18} color={isDark ? '#A78BFA' : '#FDE68A'} />
+                  <Ionicons name="pulse" size={18} color={isDark ? '#93C5FD' : '#DBEAFE'} />
                 </View>
               </View>
               <View style={s.heroStats}>
@@ -275,8 +302,8 @@ export default function CustomerDashboard() {
               ) : (
                 orders.map(order => (
                   <TouchableOpacity key={order.id} style={s.orderItem} onPress={() => router.push('/customer/orders')}>
-                    <LinearGradient colors={isDark ? ['#3B0764', '#1E1B4B'] : ['#EEF2FF', '#E0E7FF']} style={s.orderIconWrap}>
-                      <Ionicons name="cube" size={18} color={isDark ? '#A78BFA' : T.accent} />
+                    <LinearGradient colors={isDark ? ['#1E3A8A', '#1E40AF'] : ['#EFF6FF', '#DBEAFE']} style={s.orderIconWrap}>
+                      <Ionicons name="cube" size={18} color={isDark ? '#93C5FD' : T.accent} />
                     </LinearGradient>
                     <View style={s.orderInfo}>
                       <Text style={s.orderTitle}>Order #{order.id.substring(0, 8).toUpperCase()}</Text>
@@ -284,8 +311,8 @@ export default function CustomerDashboard() {
                     </View>
                     <View style={[s.orderBadge, {
                       backgroundColor: order.status === 'pending'
-                        ? (isDark ? '#451A03' : '#FFFBEB')
-                        : (isDark ? '#052E16' : '#F0FDF4')
+                        ? (isDark ? '#172554' : '#EFF6FF')
+                        : (isDark ? '#064E3B' : '#F0FDF4')
                     }]}>
                       <Text style={[s.orderBadgeText, {
                         color: order.status === 'pending' ? T.amber : T.green
@@ -301,6 +328,67 @@ export default function CustomerDashboard() {
 
         </ScrollView>
       </SafeAreaView>
+
+      {/* ── SIDE MENU MODAL ── */}
+      <Modal visible={isMenuOpen} transparent animationType="none" onRequestClose={closeMenu}>
+        <View style={s.menuOverlay}>
+          <TouchableWithoutFeedback onPress={closeMenu}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <Animated.View style={[s.sideMenu, { transform: [{ translateX: slideAnim }] }]}>
+            <SafeAreaView style={{ flex: 1, backgroundColor: T.surface }}>
+               <View style={s.menuHeader}>
+                  <Image source={{ uri: user?.photoURL || PLACEHOLDER_IMAGE }} style={s.menuAvatar} defaultSource={{ uri: PLACEHOLDER_IMAGE }} />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                     <Text style={s.menuName} numberOfLines={1}>{firstName}</Text>
+                     <Text style={s.menuEmail} numberOfLines={1}>{user?.email}</Text>
+                  </View>
+                  <TouchableOpacity onPress={closeMenu} style={s.closeMenuBtn}>
+                     <Ionicons name="close" size={20} color={T.text} />
+                  </TouchableOpacity>
+               </View>
+               
+               <ScrollView contentContainerStyle={s.menuScroll} showsVerticalScrollIndicator={false}>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/profile'); }}>
+                     <Ionicons name="person-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>My Profile</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/orders'); }}>
+                     <Ionicons name="receipt-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>Order History</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/offers'); }}>
+                    <Ionicons name="pricetag-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                    <Text style={s.menuItemText}>Offers & Deals</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/notifications'); }}>
+                     <Ionicons name="notifications-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>Notifications</Text>
+                  </TouchableOpacity>
+                  
+                  <View style={s.menuDivider} />
+                  
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/support'); }}>
+                     <Ionicons name="help-buoy-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>Help & Support</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/privacy'); }}>
+                     <Ionicons name="shield-checkmark-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>Privacy Policy</Text>
+                  </TouchableOpacity>
+               </ScrollView>
+
+               <View style={s.menuFooter}>
+                  <TouchableOpacity style={s.logoutBtn} onPress={() => { closeMenu(); auth.signOut(); router.replace('/auth/login'); }}>
+                     <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+                     <Text style={s.logoutText}>Sign Out</Text>
+                  </TouchableOpacity>
+               </View>
+            </SafeAreaView>
+          </Animated.View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -309,10 +397,11 @@ function makeStyles(T, isDark) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
 
-    glow1: { position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(124,58,237,0.12)' },
+    glow1: { position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: 'rgba(59,130,246,0.12)' },
     glow2: { position: 'absolute', top: 420, left: -120, width: 340, height: 340, borderRadius: 170, backgroundColor: 'rgba(37,99,235,0.07)' },
 
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+    hamburgerBtn: { marginRight: 12, padding: 4 },
     greetingText: { fontSize: 14, color: T.subtext, fontWeight: '600' },
     nameText: { fontSize: 28, fontWeight: '900', color: T.text, letterSpacing: -0.5 },
     headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -340,8 +429,8 @@ function makeStyles(T, isDark) {
     avatar: { width: 44, height: 44, borderRadius: 14, borderWidth: 2, borderColor: T.accent },
 
     cardWrap: { paddingHorizontal: 24, marginTop: 14 },
-    heroCard: { borderRadius: 28, padding: 22, overflow: 'hidden', borderWidth: 1, borderColor: isDark ? 'rgba(124,58,237,0.3)' : 'transparent', elevation: 12, shadowColor: T.accent, shadowOpacity: 0.3, shadowRadius: 18 },
-    heroGlow: { position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(124,58,237,0.2)' },
+    heroCard: { borderRadius: 28, padding: 22, overflow: 'hidden', borderWidth: 1, borderColor: isDark ? 'rgba(59,130,246,0.3)' : 'transparent', elevation: 12, shadowColor: T.accent, shadowOpacity: 0.3, shadowRadius: 18 },
+    heroGlow: { position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(59,130,246,0.2)' },
     heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     heroLabel: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.55)', letterSpacing: 1.8 },
     heroTitle: { fontSize: 22, fontWeight: '900', color: '#FFF', marginTop: 4 },
@@ -370,7 +459,7 @@ function makeStyles(T, isDark) {
     productCard: { width: 190, height: 230, borderRadius: 24, marginRight: 16, overflow: 'hidden', backgroundColor: T.surface2, borderWidth: 1, borderColor: T.border },
     productImg: { width: '100%', height: '100%', resizeMode: 'cover', position: 'absolute' },
     productGradient: { ...StyleSheet.absoluteFillObject },
-    pricePill: { position: 'absolute', top: 12, right: 12, backgroundColor: isDark ? 'rgba(124,58,237,0.85)' : 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+    pricePill: { position: 'absolute', top: 12, right: 12, backgroundColor: isDark ? 'rgba(37,99,235,0.85)' : 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
     priceText: { color: '#FFF', fontSize: 12, fontWeight: '900' },
     productContent: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 14 },
     productName: { fontSize: 15, fontWeight: '800', color: '#FFF' },
@@ -389,5 +478,21 @@ function makeStyles(T, isDark) {
 
     emptyState: { alignItems: 'center', padding: 30 },
     emptyText: { color: T.subtext, marginTop: 10, fontWeight: '600' },
+
+    // SIDE MENU
+    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row' },
+    sideMenu: { width: width * 0.8, backgroundColor: T.surface, height: '100%', shadowColor: '#000', shadowOffset: { width: 5, height: 0 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20, borderRightWidth: 1, borderRightColor: isDark ? T.border : 'transparent' },
+    menuHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 24, borderBottomWidth: 1, borderBottomColor: T.border },
+    menuAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: T.border },
+    menuName: { fontSize: 18, fontWeight: '900', color: T.text },
+    menuEmail: { fontSize: 13, color: T.subtext, fontWeight: '600', marginTop: 2 },
+    closeMenuBtn: { position: 'absolute', right: 20, top: 24, width: 32, height: 32, borderRadius: 16, backgroundColor: T.bg, justifyContent: 'center', alignItems: 'center' },
+    menuScroll: { paddingVertical: 10 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 24 },
+    menuItemText: { fontSize: 15, fontWeight: '700', color: T.text, marginLeft: 16 },
+    menuDivider: { height: 1, backgroundColor: T.border, marginVertical: 10, marginHorizontal: 24 },
+    menuFooter: { padding: 24, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface2 },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center' },
+    logoutText: { fontSize: 15, fontWeight: '800', color: '#EF4444', marginLeft: 16 }
   });
 }

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const CATEGORIES = ["All", "Tech ", "Food ", "Fashion ", "Services "];
@@ -15,6 +16,9 @@ const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1553413077-190dd305
 export default function Marketplace() {
   const router = useRouter();
   const user = auth.currentUser;
+  const { theme: T, isDark } = useTheme();
+  const styles = makeStyles(T, isDark);
+  
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,7 +96,7 @@ export default function Marketplace() {
            <Text style={styles.categoryBadgeText}>{item.category}</Text>
         </View>
         <TouchableOpacity style={styles.favBtn}>
-           <Ionicons name="heart-outline" size={18} color="#1E293B" />
+           <Ionicons name="heart-outline" size={18} color={T.text} />
         </TouchableOpacity>
       </View>
       <View style={styles.itemContent}>
@@ -128,7 +132,7 @@ export default function Marketplace() {
                  <Text style={styles.headerTitle}>Marketplace</Text>
               </View>
               <TouchableOpacity onPress={() => router.push('/customer/cart')} style={styles.cartIconBox}>
-                 <Ionicons name="bag-handle-outline" size={24} color="#1E293B" />
+                 <Ionicons name="bag-handle-outline" size={24} color={T.text} />
               </TouchableOpacity>
            </View>
 
@@ -143,7 +147,7 @@ export default function Marketplace() {
               />
               <View style={styles.divider} />
               <TouchableOpacity style={styles.filterBtn}>
-                 <Ionicons name="options-outline" size={20} color="#6366F1" />
+                 <Ionicons name="options-outline" size={20} color={T.accent} />
               </TouchableOpacity>
            </View>
         </View>
@@ -171,7 +175,7 @@ export default function Marketplace() {
 
         {/* PRODUCT GRID */}
         {loading ? (
-          <View style={styles.center}><ActivityIndicator size="large" color="#6366F1" /></View>
+          <View style={styles.center}><ActivityIndicator size="large" color={T.accent} /></View>
         ) : (
           <FlatList 
             data={filteredProducts}
@@ -183,7 +187,7 @@ export default function Marketplace() {
             columnWrapperStyle={{ justifyContent: 'space-between' }}
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Ionicons name="search-outline" size={60} color="#E2E8F0" />
+                <Ionicons name="search-outline" size={60} color={T.border} />
                 <Text style={styles.emptyText}>No results found.</Text>
               </View>
             }
@@ -194,42 +198,44 @@ export default function Marketplace() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
-  header: { paddingHorizontal: 24, paddingTop: 10 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  headerLabel: { fontSize: 10, fontWeight: '900', color: '#6366F1', letterSpacing: 1.5, marginBottom: 2 },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: '#1E293B' },
-  cartIconBox: { width: 50, height: 50, borderRadius: 18, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
-  
-  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 20, paddingHorizontal: 15, height: 56, elevation: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 12 },
-  searchInput: { flex: 1, marginLeft: 12, fontSize: 15, color: '#1E293B', fontWeight: '600' },
-  divider: { width: 1, height: 24, backgroundColor: '#F1F5F9', marginHorizontal: 10 },
-  filterBtn: { padding: 5 },
+function makeStyles(T, isDark) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    
+    header: { paddingHorizontal: 24, paddingTop: 10 },
+    topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    headerLabel: { fontSize: 10, fontWeight: '900', color: isDark ? '#60A5FA' : '#2563EB', letterSpacing: 1.5, marginBottom: 2 },
+    headerTitle: { fontSize: 28, fontWeight: '900', color: T.text },
+    cartIconBox: { width: 50, height: 50, borderRadius: 18, backgroundColor: T.surface, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
+    
+    searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: T.surface2, borderRadius: 20, paddingHorizontal: 15, height: 56, elevation: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 12 },
+    searchInput: { flex: 1, marginLeft: 12, fontSize: 15, color: T.text, fontWeight: '600' },
+    divider: { width: 1, height: 24, backgroundColor: T.border, marginHorizontal: 10 },
+    filterBtn: { padding: 5 },
 
-  catSection: { marginVertical: 15 },
-  catList: { paddingHorizontal: 24 },
-  catBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 14, marginRight: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#F1F5F9' },
-  catBtnActive: { backgroundColor: '#1E293B', borderColor: '#1E293B' },
-  catText: { fontSize: 13, fontWeight: '700', color: '#94A3B8' },
-  catTextActive: { color: '#FFF' },
+    catSection: { marginVertical: 15 },
+    catList: { paddingHorizontal: 24 },
+    catBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 14, marginRight: 10, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border },
+    catBtnActive: { backgroundColor: isDark ? '#3B82F6' : '#2563EB', borderColor: isDark ? '#3B82F6' : '#2563EB' },
+    catText: { fontSize: 13, fontWeight: '700', color: T.subtext },
+    catTextActive: { color: '#FFF' },
 
-  gridContent: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 120 },
-  itemCard: { width: (width - 64) / 2, marginBottom: 20, backgroundColor: '#FFF', borderRadius: 28, overflow: 'hidden', elevation: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 15 },
-  imageWrapper: { height: 160, backgroundColor: '#F1F5F9', position: 'relative' },
-  itemImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  categoryBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  categoryBadgeText: { fontSize: 9, fontWeight: '900', color: '#1E293B', textTransform: 'uppercase' },
-  favBtn: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
-  
-  itemContent: { padding: 15 },
-  itemTitle: { fontSize: 15, fontWeight: '800', color: '#1E293B', marginBottom: 8 },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemPrice: { fontSize: 16, color: '#6366F1', fontWeight: '900' },
-  addSmallBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5 },
+    gridContent: { paddingHorizontal: 24, paddingTop: 10, paddingBottom: 120 },
+    itemCard: { width: (width - 64) / 2, marginBottom: 20, backgroundColor: T.surface, borderRadius: 28, overflow: 'hidden', elevation: 8, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 15, borderWidth: 1, borderColor: isDark ? T.border : 'transparent' },
+    imageWrapper: { height: 160, backgroundColor: T.border, position: 'relative' },
+    itemImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    categoryBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: isDark ? 'rgba(30,41,59,0.9)' : 'rgba(255,255,255,0.9)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    categoryBadgeText: { fontSize: 9, fontWeight: '900', color: T.text, textTransform: 'uppercase' },
+    favBtn: { position: 'absolute', top: 12, right: 12, width: 32, height: 32, borderRadius: 10, backgroundColor: isDark ? 'rgba(30,41,59,0.9)' : 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' },
+    
+    itemContent: { padding: 15 },
+    itemTitle: { fontSize: 15, fontWeight: '800', color: T.text, marginBottom: 8 },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    itemPrice: { fontSize: 16, color: isDark ? '#60A5FA' : '#2563EB', fontWeight: '900' },
+    addSmallBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: isDark ? '#3B82F6' : '#2563EB', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5 },
 
-  emptyState: { alignItems: 'center', marginTop: 80 },
-  emptyText: { fontSize: 16, color: '#94A3B8', fontWeight: '600', marginTop: 20 }
-});
+    emptyState: { alignItems: 'center', marginTop: 80 },
+    emptyText: { fontSize: 16, color: T.subtext, fontWeight: '600', marginTop: 20 }
+  });
+}

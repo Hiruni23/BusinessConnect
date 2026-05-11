@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useEffect, useState } from 'react';
+import { useTheme } from '../../context/ThemeContext';
 import { collection, query, where, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,6 +17,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 export default function CustomerProfile() {
   const router = useRouter();
   const user = auth.currentUser;
+  const { theme: T, isDark } = useTheme();
+  const styles = makeStyles(T, isDark);
   const [stats, setStats] = useState({ orders: 0, cartItems: 0 });
   const [profilePic, setProfilePic] = useState(user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`);
   const [uploading, setUploading] = useState(false);
@@ -92,7 +95,7 @@ export default function CustomerProfile() {
 
   const menuItems = [
     { icon: 'grid-outline', label: 'Main Dashboard', color: '#3B82F6', route: '/customer/dashboard' },
-    { icon: 'search-outline', label: 'Explore Trends', color: '#6366F1', route: '/customer/explore' },
+    { icon: 'search-outline', label: 'Explore Trends', color: '#60A5FA', route: '/customer/explore' },
     { icon: 'bulb-outline', label: 'Innovations', color: '#8B5CF6', route: '/customer/marketplace' },
     { icon: 'person-outline', label: 'Personal Info', color: '#10B981', route: '/customer/personal-info' },
     { icon: 'shield-checkmark-outline', label: 'Security', color: '#F59E0B', route: '/customer/security' },
@@ -105,13 +108,13 @@ export default function CustomerProfile() {
       <StatusBar barStyle="light-content" />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* PREMIUM HEADER */}
-        <LinearGradient colors={['#1E293B', '#0F172A']} style={styles.header}>
+        <LinearGradient colors={isDark ? ['#1E3A8A', '#0F172A'] : ['#2563EB', '#1E40AF']} style={styles.header}>
           <SafeAreaView style={styles.headerContent}>
             <TouchableOpacity style={styles.avatarContainer} onPress={handlePickImage} disabled={uploading}>
-              <LinearGradient colors={['#6366F1', '#A855F7']} style={styles.avatarRing}>
+              <LinearGradient colors={isDark ? ['#60A5FA', '#3B82F6'] : ['#93C5FD', '#60A5FA']} style={styles.avatarRing}>
                 {uploading ? (
                   <View style={[styles.avatar, { justifyContent: 'center', alignItems: 'center' }]}>
-                    <ActivityIndicator color="#6366F1" />
+                    <ActivityIndicator color={isDark ? "#60A5FA" : "#2563EB"} />
                   </View>
                 ) : (
                   <Image source={{ uri: profilePic }} style={styles.avatar} />
@@ -174,31 +177,33 @@ export default function CustomerProfile() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40, overflow: 'hidden' },
-  headerContent: { alignItems: 'center', paddingVertical: 40 },
-  avatarContainer: { position: 'relative', marginBottom: 15 },
-  avatarRing: { padding: 4, borderRadius: 50 },
-  avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#E2E8F0' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#6366F1', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#1E293B' },
-  name: { fontSize: 24, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
-  email: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontWeight: '600' },
-  
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 24, padding: 20, marginTop: 30, width: width - 48 },
-  statBox: { flex: 1, alignItems: 'center' },
-  statVal: { fontSize: 20, fontWeight: '900', color: '#FFF' },
-  statLab: { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
-  statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+function makeStyles(T, isDark) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: T.bg },
+    header: { borderBottomLeftRadius: 40, borderBottomRightRadius: 40, overflow: 'hidden' },
+    headerContent: { alignItems: 'center', paddingVertical: 40 },
+    avatarContainer: { position: 'relative', marginBottom: 15 },
+    avatarRing: { padding: 4, borderRadius: 50 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: isDark ? '#1E293B' : '#E2E8F0' },
+    editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: isDark ? '#3B82F6' : '#2563EB', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: isDark ? '#1E3A8A' : '#2563EB' },
+    name: { fontSize: 24, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
+    email: { fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 4, fontWeight: '600' },
+    
+    statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 24, padding: 20, marginTop: 30, width: width - 48 },
+    statBox: { flex: 1, alignItems: 'center' },
+    statVal: { fontSize: 20, fontWeight: '900', color: '#FFF' },
+    statLab: { fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
+    statDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.2)' },
 
-  content: { padding: 24 },
-  section: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', color: '#1E293B', marginBottom: 15, marginLeft: 5 },
-  menuList: { backgroundColor: '#FFF', borderRadius: 32, padding: 10, elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15 },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#F8FAFC' },
-  iconCircle: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  menuText: { flex: 1, fontSize: 16, fontWeight: '700', color: '#334155' },
+    content: { padding: 24 },
+    section: { marginBottom: 30 },
+    sectionTitle: { fontSize: 18, fontWeight: '900', color: T.text, marginBottom: 15, marginLeft: 5 },
+    menuList: { backgroundColor: T.surface, borderRadius: 32, padding: 10, elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 15, borderWidth: 1, borderColor: isDark ? T.border : 'transparent' },
+    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: T.border },
+    iconCircle: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+    menuText: { flex: 1, fontSize: 16, fontWeight: '700', color: T.text },
 
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEE2E2', padding: 20, borderRadius: 24 },
-  logoutText: { marginLeft: 10, fontSize: 16, fontWeight: '800', color: '#EF4444' }
-});
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? '#450a0a' : '#FEE2E2', padding: 20, borderRadius: 24, borderWidth: 1, borderColor: isDark ? '#7f1d1d' : '#FCA5A5' },
+    logoutText: { marginLeft: 10, fontSize: 16, fontWeight: '800', color: isDark ? '#FCA5A5' : '#EF4444' }
+  });
+}
