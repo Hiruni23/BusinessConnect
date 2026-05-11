@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { auth } from '../firebase/firebaseConfig';
 import StatusBadge from '../components/StatusBadge';
 import Table from '../components/Table';
-import { subscribeToPendingProjects, updateProjectStatus } from '../services/projectService';
+import { subscribeToAllProjects, updateProjectStatus } from '../services/projectService';
 import { sendProjectStatusNotification } from '../services/notificationService';
 
 export default function Projects({ searchQuery = '' }) {
@@ -13,9 +13,9 @@ export default function Projects({ searchQuery = '' }) {
 
   useEffect(() => {
     setLoading(true);
-    const unsubscribe = subscribeToPendingProjects((err, data) => {
+    const unsubscribe = subscribeToAllProjects((err, data) => {
       if (err) {
-        setError(err.message || 'Failed to sync pending projects.');
+        setError(err.message || 'Failed to sync projects.');
       } else {
         setProjects(data);
       }
@@ -79,22 +79,30 @@ export default function Projects({ searchQuery = '' }) {
     project.ownerName || project.owner || project.createdByEmail || 'Unknown Owner',
     <StatusBadge key={`status-${project.id}`} status={project.status || 'pending'} />,
     <div className="project-actions" key={`action-${project.id}`}>
-      <button
-        className="approve-btn"
-        type="button"
-        onClick={() => handleDecision(project.id, 'approved')}
-        disabled={updatingId === project.id}
-      >
-        {updatingId === project.id ? 'Updating...' : 'Approve'}
-      </button>
-      <button
-        className="reject-btn"
-        type="button"
-        onClick={() => handleDecision(project.id, 'rejected')}
-        disabled={updatingId === project.id}
-      >
-        Reject
-      </button>
+      {(project.status === 'Open' || project.status === 'pending') ? (
+        <>
+          <button
+            className="approve-btn"
+            type="button"
+            onClick={() => handleDecision(project.id, 'approved')}
+            disabled={updatingId === project.id}
+          >
+            {updatingId === project.id ? 'Updating...' : 'Approve'}
+          </button>
+          <button
+            className="reject-btn"
+            type="button"
+            onClick={() => handleDecision(project.id, 'rejected')}
+            disabled={updatingId === project.id}
+          >
+            Reject
+          </button>
+        </>
+      ) : (
+        <span className="text-muted" style={{ fontSize: '13px', color: '#64748B', fontWeight: '600' }}>
+          Moderated
+        </span>
+      )}
     </div>,
   ]);
 
@@ -105,9 +113,9 @@ export default function Projects({ searchQuery = '' }) {
 
       {error ? <div className="form-error">{error}</div> : null}
 
-      {loading ? <p>Loading pending projects...</p> : null}
+      {loading ? <p>Loading projects...</p> : null}
 
-      {!loading && rows.length === 0 ? <p>No pending projects right now.</p> : null}
+      {!loading && rows.length === 0 ? <p>No projects found.</p> : null}
 
       {!loading && rows.length > 0 ? (
         <Table columns={['Project Name', 'Owner', 'Status', 'Actions']} rows={rows} />

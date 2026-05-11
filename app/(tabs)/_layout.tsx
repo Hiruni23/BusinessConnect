@@ -7,6 +7,7 @@ import { auth, db } from "../../firebaseConfig";
 export default function TabsLayout() {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const normalizedRole = String(userData?.role || '').trim().toLowerCase();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -48,7 +49,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="home" size={24} color={color} />
           ),
-          href: userData?.role === "Entrepreneur" ? "/entrepreneur/dashboard" : null,
+          href: normalizedRole === "entrepreneur" ? "/entrepreneur/dashboard" : null,
         }}
       />
 
@@ -60,7 +61,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="document" size={24} color={color} />
           ),
-          href: userData?.role === "Entrepreneur" ? "/entrepreneur/my-pitches" : null,
+          href: normalizedRole === "entrepreneur" ? "/entrepreneur/my-pitches" : null,
         }}
       />
 
@@ -72,7 +73,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="bar-chart" size={24} color={color} />
           ),
-          href: userData?.role === "Entrepreneur" ? "/entrepreneur/analytics" : null,
+          href: normalizedRole === "entrepreneur" ? "/entrepreneur/analytics" : null,
         }}
       />
 
@@ -84,7 +85,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="notifications" size={24} color={color} />
           ),
-          href: userData?.role === "Entrepreneur" ? "/entrepreneur/notifications" : null,
+          href: normalizedRole === "entrepreneur" ? "/entrepreneur/notifications" : null,
         }}
       />
 
@@ -96,7 +97,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => (
             <Ionicons name="person" size={24} color={color} />
           ),
-          href: userData?.role === "Entrepreneur" ? "/entrepreneur/profile" : null,
+          href: normalizedRole === "entrepreneur" ? "/entrepreneur/profile" : null,
         }}
       />
     </Tabs>

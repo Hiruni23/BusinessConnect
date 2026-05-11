@@ -7,7 +7,7 @@ import * as FirebaseAuth from "firebase/auth";
 import type { FirebaseApp } from "firebase/app";
 import type { Auth, Persistence } from "firebase/auth";
 import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 
@@ -40,7 +40,10 @@ try {
   auth = getAuth(app);
 }
 
-const db = getFirestore(app);
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+  useFetchStreams: false,
+});
 const functions = getFunctions(app);
 const storage = getStorage(app);
 

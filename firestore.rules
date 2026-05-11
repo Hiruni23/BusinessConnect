@@ -161,6 +161,11 @@ service cloud.firestore {
       allow delete: if isAdmin() || isOwner(resource.data.sellerId);
     }
 
+    match /offers/{offerId} {
+      allow read: if signedIn() && isRole('Customer');
+      allow create, update, delete: if isAdmin();
+    }
+
     match /cart/{cartId} {
       allow read, write: if isOwner(cartId);
     }

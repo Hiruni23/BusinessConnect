@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
-import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy, updateDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 export default function InvestorInbox() {
   const [recentChats, setRecentChats] = useState([]);
+  const [connections, setConnections] = useState([]);
   const user = auth.currentUser;
   const router = useRouter();
 
@@ -23,12 +24,65 @@ export default function InvestorInbox() {
       setRecentChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => unsubscribe();
+    const qConn = query(
+      collection(db, "connections"),
+      where("toUserId", "==", user.uid),
+      where("status", "==", "pending")
+    );
+    const unsubConn = onSnapshot(qConn, (snapshot) => {
+      setConnections(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubConn();
+    };
   }, [user]);
+
+  const handleAcceptConnection = async (connId, entrepreneurId) => {
+    try {
+      await updateDoc(doc(db, "connections", connId), { status: "accepted" });
+      
+      await addDoc(collection(db, "chats"), {
+        entrepreneurId: entrepreneurId,
+        investorId: user.uid,
+        updatedAt: serverTimestamp(),
+        unreadBy: [],
+        lastMessage: "Connection accepted! You can now chat.",
+        investorEmail: user.email || "Investor"
+      });
+    } catch (err) {
+      console.error("Error accepting connection:", err);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Messages</Text>
+      
+      {connections.length > 0 && (
+        <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", marginBottom: 10, color: "#64748B", textTransform: 'uppercase' }}>Connection Requests</Text>
+          {connections.map((conn) => (
+            <View key={conn.id} style={[styles.chatItem, { borderColor: '#10B981', borderWidth: 1 }]}>
+              <View style={styles.iconBg}>
+                <Ionicons name="person-add" size={20} color="#047857" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={styles.title}>Entrepreneur</Text>
+                <Text style={styles.msg} numberOfLines={1}>Wants to connect</Text>
+              </View>
+              <TouchableOpacity 
+                style={{ backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 }}
+                onPress={() => handleAcceptConnection(conn.id, conn.fromUserId)}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>Accept</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       <FlatList
         data={recentChats}
         keyExtractor={(item) => item.id}

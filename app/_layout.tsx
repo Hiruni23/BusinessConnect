@@ -198,15 +198,22 @@ export default function RootLayout() {
         const normalizedRole = String(role || "").toLowerCase();
         /* 1️⃣ No role → force role selection ONLY during signup */
         if (!role) {
-          const isFromSignup = 
+          const isAuthProcess = 
             segments.join("/") === "auth/signup" || 
-            segments.join("/") === "auth/role-selection";
+            segments.join("/") === "auth/role-selection" ||
+            segments.join("/") === "auth/login";
             
-          if (!isFromSignup) {
+          if (!isAuthProcess) {
             // User is trying to log in (or open app) but their account setup was never completed.
             // Sign them out and force them back to welcome instead of showing role selection.
             auth.signOut();
             router.replace("/auth/welcome");
+            setInitialRouteLoaded(true);
+            return;
+          }
+
+          // Let signup/login screens handle their own routing to prevent race conditions
+          if (segments.join("/") === "auth/signup" || segments.join("/") === "auth/login") {
             setInitialRouteLoaded(true);
             return;
           }

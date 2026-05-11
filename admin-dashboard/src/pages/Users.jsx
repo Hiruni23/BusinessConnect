@@ -68,8 +68,23 @@ export default function Users() {
     user.role || 'unknown',
     user.status || 'active',
     <div className="project-actions" key={`actions-${user.id}`}>
+      {user.status === 'pending' && (
+        <button 
+          className="approve-btn" 
+          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+          onClick={async () => {
+            try {
+              await updateUser(user.id, { status: 'active' });
+            } catch (err) {
+              setError('Failed to approve user.');
+            }
+          }}
+        >
+          Approve
+        </button>
+      )}
       <button 
-        className="approve-btn" 
+        className="outline-btn" 
         style={{ padding: '6px 12px', fontSize: '0.8rem' }}
         onClick={() => handleEditClick(user)}
       >
