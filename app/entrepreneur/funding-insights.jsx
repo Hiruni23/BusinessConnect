@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 
 export default function FundingInsights() {
   const [investors, setInvestors] = useState([]);
+  const [pendingInvestments, setPendingInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
   const router = useRouter();
@@ -29,8 +30,32 @@ export default function FundingInsights() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const qPending = query(
+      collection(db, "investments"),
+      where("businessId", "==", user.uid),
+      where("status", "==", "pending")
+    );
+    const unsubPending = onSnapshot(qPending, (snapshot) => {
+      setPendingInvestments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubscribe();
+      unsubPending();
+    };
   }, [user]);
+
+  const handleApprove = async (invId) => {
+    try {
+      await updateDoc(doc(db, "investments", invId), { status: "escrow" });
+    } catch(err) { console.error(err); }
+  };
+
+  const handleDecline = async (invId) => {
+    try {
+      await updateDoc(doc(db, "investments", invId), { status: "rejected" });
+    } catch(err) { console.error(err); }
+  };
 
   const sendThankYou = (investorEmail, pitchTitle) => {
     const subject = `Thank you for investing in ${pitchTitle}!`;
@@ -75,6 +100,39 @@ export default function FundingInsights() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 20 }}
+          ListHeaderComponent={
+            pendingInvestments.length > 0 ? (
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginBottom: 10 }}>Pending Offers</Text>
+                {pendingInvestments.map(inv => (
+                  <View key={inv.id} style={[styles.investorCard, { borderColor: '#F59E0B', borderWidth: 1 }]}>
+                    <View style={[styles.avatar, { backgroundColor: '#F59E0B' }]}>
+                      <Ionicons name="time" size={24} color="#fff" />
+                    </View>
+                    <View style={styles.details}>
+                      <Text style={styles.investorName}>Investor ID: {inv.investorId.slice(0,6)}...</Text>
+                      <Text style={styles.amount}>Offered: ${inv.amount?.toLocaleString()}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity 
+                        style={[styles.thankYouBtn, { backgroundColor: '#10B981' }]}
+                        onPress={() => handleApprove(inv.id)}
+                      >
+                        <Text style={[styles.btnText, { marginTop: 0 }]}>Approve</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.thankYouBtn, { backgroundColor: '#EF4444' }]}
+                        onPress={() => handleDecline(inv.id)}
+                      >
+                        <Text style={[styles.btnText, { marginTop: 0 }]}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1E293B', marginTop: 10, marginBottom: 5 }}>Completed Investments</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <Text style={styles.empty}>No investments recorded yet.</Text>
           }

@@ -15,6 +15,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../../firebaseConfig";
 
@@ -157,12 +158,26 @@ export default function ProfessionalInvestorProfile() {
             />
 
             <SectionTitle title="Investment Preferences" />
-            <ProfileField 
-              label="Investor Classification" 
-              value={userData.investorType} 
-              onChangeText={(t) => setUserData({...userData, investorType: t})}
-              icon="briefcase"
-            />
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Investor Classification</Text>
+              <View style={[styles.fieldWrapper, { paddingHorizontal: 0, paddingRight: 10 }]}>
+                <View style={{ paddingLeft: 15 }}>
+                  <Ionicons name="briefcase" size={20} color="#94A3B8" />
+                </View>
+                <Picker
+                  selectedValue={userData.investorType}
+                  onValueChange={(itemValue) => setUserData({...userData, investorType: itemValue})}
+                  style={{ flex: 1, marginLeft: 0, height: 50, color: '#1E293B' }}
+                  dropdownIconColor="#94A3B8"
+                >
+                  <Picker.Item label="Angel Investor" value="Angel Investor" />
+                  <Picker.Item label="Venture Capital" value="Venture Capital" />
+                  <Picker.Item label="Private Equity" value="Private Equity" />
+                  <Picker.Item label="Institutional" value="Institutional" />
+                  <Picker.Item label="Other" value="Other" />
+                </Picker>
+              </View>
+            </View>
             <ProfileField 
               label="Operating Company" 
               value={userData.company} 

@@ -36,13 +36,16 @@ export default function RoleSelection() {
     try {
       setIsSubmitting(true);
       const user = auth.currentUser;
-      const userId = (user && user.uid) || uid;
 
-      if (!userId) {
-        Alert.alert("Error", "User not authenticated");
+      // Require an authenticated user. Firestore rules mandate request.auth.uid
+      // must match the document ID for user writes — avoid using a params fallback.
+      if (!user || !user.uid) {
+        Alert.alert("Error", "You must be signed in to complete setup.");
         setIsSubmitting(false);
         return;
       }
+
+      const userId = user.uid;
 
       // ✅ Create user document in Firestore with all details
       await setDoc(doc(db, "users", userId), {

@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- FIREBASE IMPORTS ---
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
 
 const LoginScreen = () => {
@@ -32,6 +32,31 @@ const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const inferRoleFromUserData = (userData) => {
+    const normalizedRole = String(userData?.role || '').trim().toLowerCase();
+    if (normalizedRole) {
+      return normalizedRole;
+    }
+
+    if (userData?.businessCategory || userData?.targetInvestorId || userData?.targetInvestorCategory) {
+      return 'entrepreneur';
+    }
+
+    if (userData?.investorType) {
+      return 'investor';
+    }
+
+    if (userData?.customerPreferences || userData?.shippingAddress || userData?.cartCount) {
+      return 'customer';
+    }
+
+    if (userData?.governanceScope || userData?.oversightNotes) {
+      return 'stakeholder';
+    }
+
+    return null;
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -77,10 +102,19 @@ const LoginScreen = () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
 
       if (userDoc.exists()) {
-        const role = userDoc.data().role;
+        const userData = userDoc.data();
+        const role = inferRoleFromUserData(userData);
         const route = roleRoutes[role];
 
         if (route) {
+          if (String(userData?.role || '').trim().toLowerCase() !== role) {
+            await setDoc(doc(db, "users", user.uid), {
+              role,
+              setupComplete: true,
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          }
+
           router.replace(route);
         } else {
           // Allow role selection as fallback if role is missing

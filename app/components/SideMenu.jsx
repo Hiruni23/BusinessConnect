@@ -64,11 +64,21 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
     { label: "Market Intel", icon: "analytics-outline", path: "/stakeholder/analytics" },
   ];
 
+  const customerItems = [
+    { label: "Marketplace", icon: "storefront-outline", path: "/customer/dashboard" },
+    { label: "Explore", icon: "search-outline", path: "/customer/explore" },
+    { label: "Offers & Deals", icon: "pricetag-outline", path: "/customer/offers" },
+    { label: "Cart", icon: "cart-outline", path: "/customer/cart" },
+    { label: "Orders", icon: "receipt-outline", path: "/customer/orders" },
+    { label: "Notifications", icon: "notifications-outline", path: "/customer/notifications" },
+  ];
+
   // Select items based on Firestore role
   const getMenuItems = () => {
     const role = userData?.role?.toLowerCase();
     if (role === 'investor') return investorItems;
     if (role === 'stakeholder') return stakeholderItems;
+    if (role === 'customer') return customerItems;
     return entrepreneurItems;
   };
 
@@ -78,6 +88,7 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
     const role = userData?.role?.toLowerCase();
     if (role === 'investor') return '#F0FDF4'; // Green tint
     if (role === 'stakeholder') return '#F5F7FF'; // Indigo tint
+    if (role === 'customer') return '#FFF7ED'; // Orange tint
     return '#EFF6FF'; // Blue tint
   };
 
@@ -85,8 +96,26 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
     const role = userData?.role?.toLowerCase();
     if (role === 'investor') return '#22C55E';
     if (role === 'stakeholder') return '#4F46E5';
+    if (role === 'customer') return '#F97316';
     return '#3B82F6';
   };
+
+  const getAccountLinks = () => {
+    const role = userData?.role?.toLowerCase();
+    if (role === 'customer') {
+      return {
+        profile: '/customer/profile',
+        privacy: '/customer/privacy',
+      };
+    }
+
+    return {
+      profile: '/profile',
+      privacy: '/profile/privacy-policy',
+    };
+  };
+
+  const accountLinks = getAccountLinks();
 
   return (
     <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
@@ -134,13 +163,13 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
                   icon="person-outline" 
                   label="Profile Settings" 
                   accentColor={getAccentColor()}
-                  onPress={() => { onClose(); router?.push("/profile"); }}
+                  onPress={() => { onClose(); router?.push(accountLinks.profile); }}
                 />
                 <MenuItem 
                   icon="shield-checkmark-outline" 
                   label="Privacy Policy" 
                   accentColor={getAccentColor()}
-                  onPress={() => { onClose(); router?.push("/profile/privacy-policy"); }}
+                  onPress={() => { onClose(); router?.push(accountLinks.privacy); }}
                 />
               </ScrollView>
 
