@@ -67,6 +67,7 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
   const customerItems = [
     { label: "Marketplace", icon: "storefront-outline", path: "/customer/dashboard" },
     { label: "Explore", icon: "search-outline", path: "/customer/explore" },
+    { label: "AR Prototype", icon: "cube-outline", path: "/customer/ar-view" },
     { label: "Offers & Deals", icon: "pricetag-outline", path: "/customer/offers" },
     { label: "Cart", icon: "cart-outline", path: "/customer/cart" },
     { label: "Orders", icon: "receipt-outline", path: "/customer/orders" },

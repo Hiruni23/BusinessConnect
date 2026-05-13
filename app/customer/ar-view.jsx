@@ -5,6 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { auth, db } from '../../firebaseConfig';
+import SideMenu from '../components/SideMenu';
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,6 +17,9 @@ export default function ARView() {
   const { title } = useLocalSearchParams();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const user = auth.currentUser;
   
   // Animations
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -69,6 +76,25 @@ export default function ARView() {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubUser = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+      if (docSnap.exists()) setUserData({ ...docSnap.data(), email: user.email });
+    }, (error) => console.error("User profile listener failed:", error));
+
+    return () => unsubUser();
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace("/auth/login");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (!permission) {
     return <View style={styles.container} />;
   }
@@ -92,9 +118,14 @@ export default function ARView() {
       {/* OVERLAY UI - Now positioned absolutely over the camera */}
       <View style={[StyleSheet.absoluteFill, styles.overlay]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="close" size={28} color="#FFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuBtn}>
+              <Ionicons name="menu" size={28} color="#FFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { marginLeft: 10 }]}>
+              <Ionicons name="close" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
           <BlurView intensity={30} tint="dark" style={styles.titleContainer}>
             <Text style={styles.titleText}>{title || "Innovation"}</Text>
           </BlurView>
@@ -157,6 +188,13 @@ export default function ARView() {
           </TouchableOpacity>
         </View>
       </View>
+      <SideMenu 
+        visible={menuVisible} 
+        onClose={() => setMenuVisible(false)} 
+        userData={userData} 
+        onLogout={handleLogout} 
+        router={router} 
+      />
     </View>
   );
 }
@@ -189,6 +227,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,

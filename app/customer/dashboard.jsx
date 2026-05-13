@@ -353,6 +353,10 @@ export default function CustomerDashboard() {
                      <Ionicons name="person-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
                      <Text style={s.menuItemText}>My Profile</Text>
                   </TouchableOpacity>
+                  <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/ar-view'); }}>
+                     <Ionicons name="cube-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
+                     <Text style={s.menuItemText}>AR Innovation View</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={s.menuItem} onPress={() => { closeMenu(); router.push('/customer/orders'); }}>
                      <Ionicons name="receipt-outline" size={22} color={isDark ? '#60A5FA' : '#2563EB'} />
                      <Text style={s.menuItemText}>Order History</Text>
