@@ -201,6 +201,15 @@ export default function PitchDetails() {
             </Text>
           </TouchableOpacity>
 
+          {/* AI EVALUATION BUTTON */}
+          <TouchableOpacity
+            style={[styles.pdfButton, { backgroundColor: '#ECFDF5', borderColor: '#10B981', borderWidth: 1 }]}
+            onPress={() => router.push('/investor/ai-evaluation')}
+          >
+            <Ionicons name="sparkles" size={22} color="#10B981" />
+            <Text style={[styles.pdfButtonText, { color: '#10B981' }]}>Run AI Smart Evaluation</Text>
+          </TouchableOpacity>
+
           {/* MESSAGE BUTTON - Appears only after Acceptance */}
           {pitch?.status === "accepted" && (
             <TouchableOpacity style={styles.messageBtn} onPress={startChat}>

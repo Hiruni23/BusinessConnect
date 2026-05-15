@@ -72,6 +72,9 @@ export default function MyPitches() {
       } finally {
         setLoading(false);
       }
+    }, (error) => {
+      console.error('My Pitches listener failed:', error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -11,7 +11,7 @@ import {
     query,
     where
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -39,39 +39,40 @@ export default function LightInvestorDashboard() {
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
-  const [pitches, setPitches] = useState([]);
+  const [rawPitches, setRawPitches] = useState([]);
   const [recentChats, setRecentChats] = useState([]);
   const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const handleListenerError = (label, error) => {
+    console.error(`${label} listener failed:`, error);
+    setLoading(false);
+  };
+
+  /* ================= USER DATA LISTENER ================= */
+  useEffect(() => {
+    if (!user) return;
+    const unsubUser = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setUserData({ ...data, email: user.email });
+      }
+    }, (error) => handleListenerError("User profile", error));
+
+    return () => unsubUser();
+  }, [user]);
+
   /* ================= DATA FETCHING ================= */
   useEffect(() => {
     if (!user) return;
 
-    const handleListenerError = (label, error) => {
-      console.error(`${label} listener failed:`, error);
-      setLoading(false);
-    };
-    
-    const unsubUser = onSnapshot(doc(db, "users", user.uid), (docSnap) => {
-      if (docSnap.exists()) setUserData({ ...docSnap.data(), email: user.email });
-    }, (error) => handleListenerError("User profile", error));
-
-    const qPitches = query(collection(db, "pitches"), where("status", "==", "Open"));
+    const qPitches = collection(db, "pitches");
     const unsubPitches = onSnapshot(qPitches, (snapshot) => {
-      const pitchList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      const currentUserPrefs = {
-        interests: userData?.interests || [],
-        maxInvestment: Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
-      };
-      const sorted = pitchList
-        .map(p => {
-          const matchResult = calculateMatchScore(p, currentUserPrefs);
-          return { ...p, matchScore: matchResult.score, matchReason: matchResult.matchReason };
-        })
-        .sort((a, b) => b.matchScore - a.matchScore);
-      setPitches(sorted);
+      // Filter out closed pitches on the client side just in case old pitches don't have a status field
+      const allPitches = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      const activePitches = allPitches.filter(p => p.status !== "Closed" && p.status !== "closed");
+      setRawPitches(activePitches);
       setLoading(false);
     }, (error) => handleListenerError("Pitches", error));
 
@@ -81,8 +82,23 @@ export default function LightInvestorDashboard() {
     const qInvest = query(collection(db, "transactions"), where("investorId", "==", user.uid), orderBy("timestamp", "desc"));
     const unsubInvest = onSnapshot(qInvest, (snap) => setInvestments(snap.docs.map(d => ({ id: d.id, ...d.data() }))), (error) => handleListenerError("Investments", error));
 
-    return () => { unsubUser(); unsubPitches(); unsubChats(); unsubInvest(); };
-  }, [user, userData?.interests]);
+    return () => { unsubPitches(); unsubChats(); unsubInvest(); };
+  }, [user]);
+
+  /* ================= MATCHING & SORTING ================= */
+  const pitches = useMemo(() => {
+    const currentUserPrefs = {
+      interests: userData?.interests || [],
+      maxInvestment: Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
+    };
+    
+    return rawPitches
+      .map(p => {
+        const matchResult = calculateMatchScore(p, currentUserPrefs);
+        return { ...p, matchScore: matchResult.score, matchReason: matchResult.matchReason };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore);
+  }, [rawPitches, userData?.interests, userData?.maxInvestment]);
 
   const totalInvested = investments.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
   const hasUnreadChat = recentChats.some(c => c.unreadBy?.includes(user?.uid));
@@ -159,17 +175,35 @@ export default function LightInvestorDashboard() {
             {/* ADDITIONAL PORTFOLIO COMPONENTS */}
             <View style={styles.miniStatsRow}>
               <View style={styles.miniStat}>
-                <Ionicons name="time-outline" size={16} color="#6366F1" />
-                <Text style={styles.miniStatLabel}>Pending: $0</Text>
+                <Ionicons name="time-outline" size={16} color="#3B82F6" />
+                <Text style={[styles.miniStatLabel, { color: '#3B82F6' }]}>Pending: $0</Text>
               </View>
               <View style={styles.miniStat}>
-                <Ionicons name="trending-up-outline" size={16} color="#10B981" />
-                <Text style={styles.miniStatLabel}>ROI: +12.4%</Text>
+                <Ionicons name="trending-up-outline" size={16} color="#2563EB" />
+                <Text style={[styles.miniStatLabel, { color: '#2563EB' }]}>ROI: +12.4%</Text>
               </View>
               <View style={styles.miniStat}>
-                <Ionicons name="calendar-outline" size={16} color="#F59E0B" />
-                <Text style={styles.miniStatLabel}>Meetings: 2</Text>
+                <Ionicons name="calendar-outline" size={16} color="#1D4ED8" />
+                <Text style={[styles.miniStatLabel, { color: '#1D4ED8' }]}>Meetings: 2</Text>
               </View>
+            </View>
+
+            {/* INVESTMENT HUB */}
+            <View style={{ marginTop: 20, flexDirection: 'row', gap: 12 }}>
+               <TouchableOpacity 
+                  style={[styles.miniStat, { flex: 1.5, backgroundColor: '#4F46E5', height: 50 }]} 
+                  onPress={() => router.push("/investor/meetings")}
+               >
+                  <Ionicons name="videocam" size={20} color="#fff" />
+                  <Text style={[styles.miniStatLabel, { color: '#fff', fontSize: 13 }]}>Pitch Sessions</Text>
+               </TouchableOpacity>
+               <TouchableOpacity 
+                  style={[styles.miniStat, { flex: 1, height: 50, backgroundColor: '#FFF' }]} 
+                  onPress={() => router.push("/investor/inbox")}
+               >
+                  <Ionicons name="chatbubbles-outline" size={20} color="#4F46E5" />
+                  <Text style={styles.miniStatLabel}>Inbox</Text>
+               </TouchableOpacity>
             </View>
           </View>
 
@@ -182,24 +216,30 @@ export default function LightInvestorDashboard() {
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 15 }}>
-              {pitches.slice(0, 3).map(pitch => (
-                <View key={pitch.id} style={styles.aiCarouselCard}>
-                  <View style={styles.aiBadge}>
-                    <Ionicons name="sparkles" size={12} color="#10B981" />
-                    <Text style={styles.aiBadgeText}>Recommended</Text>
+              {pitches.length > 0 ? (
+                pitches.slice(0, 3).map(pitch => (
+                  <View key={pitch.id} style={styles.aiCarouselCard}>
+                    <View style={styles.aiBadge}>
+                      <Ionicons name="sparkles" size={12} color="#10B981" />
+                      <Text style={styles.aiBadgeText}>Recommended</Text>
+                    </View>
+                    <Text style={styles.oCategory}>{pitch.category?.toUpperCase() || "TECH"}</Text>
+                    <Text style={styles.oTitle} numberOfLines={1}>{pitch.title || "Untitled Pitch"}</Text>
+                    <Text style={styles.aiMatchReason}>{pitch.matchReason}</Text>
+                    
+                    <View style={styles.aiFooter}>
+                      <Text style={styles.aiScoreText}>{pitch.matchScore}% Match</Text>
+                      <TouchableOpacity style={styles.viewBtn} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })}>
+                        <Text style={styles.viewBtnText}>View</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <Text style={styles.oCategory}>{pitch.category?.toUpperCase() || "TECH"}</Text>
-                  <Text style={styles.oTitle} numberOfLines={1}>{pitch.title}</Text>
-                  <Text style={styles.aiMatchReason}>{pitch.matchReason}</Text>
-                  
-                  <View style={styles.aiFooter}>
-                    <Text style={styles.aiScoreText}>{pitch.matchScore}% Match</Text>
-                    <TouchableOpacity style={styles.viewBtn} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })}>
-                      <Text style={styles.viewBtnText}>View</Text>
-                    </TouchableOpacity>
-                  </View>
+                ))
+              ) : (
+                <View style={{ paddingVertical: 20 }}>
+                  <Text style={{ color: '#94A3B8', fontStyle: 'italic' }}>No recommendations available right now.</Text>
                 </View>
-              ))}
+              )}
             </ScrollView>
           </View>
 
@@ -212,10 +252,10 @@ export default function LightInvestorDashboard() {
 
             {loading ? (
               <ActivityIndicator color="#4F46E5" style={{ marginTop: 20 }} />
-            ) : pitches.length === 0 ? (
+            ) : pitches.length <= 3 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="cube-outline" size={48} color="#CBD5E1" />
-                <Text style={styles.emptyText}>No new pitches available</Text>
+                <Text style={styles.emptyText}>No more pitches available</Text>
               </View>
             ) : (
               pitches.slice(3).map(pitch => <OpportunityCard key={pitch.id} pitch={pitch} onPress={() => router.push({ pathname: "/investor/pitch-details", params: { id: pitch.id } })} />)
@@ -330,8 +370,8 @@ const styles = StyleSheet.create({
   subAssetValue: { color: '#1E293B', fontSize: 18, fontWeight: '900', marginTop: 4 },
 
   miniStatsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15, gap: 10 },
-  miniStat: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF', padding: 12, borderRadius: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
-  miniStatLabel: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+  miniStat: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF', padding: 12, borderRadius: 16, elevation: 2, shadowColor: '#4F46E5', shadowOpacity: 0.1, shadowRadius: 5 },
+  miniStatLabel: { fontSize: 11, fontWeight: '800' },
 
   section: { marginTop: 10, paddingHorizontal: 20 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },

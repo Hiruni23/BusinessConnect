@@ -28,6 +28,9 @@ export default function FundingInsights() {
         
       setInvestors(list);
       setLoading(false);
+    }, (error) => {
+      console.error('Funding insights transactions listener failed:', error);
+      setLoading(false);
     });
 
     const qPending = query(
@@ -37,6 +40,8 @@ export default function FundingInsights() {
     );
     const unsubPending = onSnapshot(qPending, (snapshot) => {
       setPendingInvestments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error('Funding insights pending investments listener failed:', error);
     });
 
     return () => {
