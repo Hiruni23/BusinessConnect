@@ -39,6 +39,9 @@ export default function PayoutsScreen() {
           fetchRealTimeBalance(data.stripeAccountId);
         }
       }
+    }, (error) => {
+      console.error('Payouts user listener failed:', error);
+      setLoading(false);
     });
 
     const walletRef = doc(db, 'wallets', user.uid);
@@ -48,6 +51,9 @@ export default function PayoutsScreen() {
       } else {
         setDoc(walletRef, { userId: user.uid, balance: 0 });
       }
+      setLoading(false);
+    }, (error) => {
+      console.error('Payouts wallet listener failed:', error);
       setLoading(false);
     });
 
@@ -60,6 +66,8 @@ export default function PayoutsScreen() {
     const unsubEscrow = onSnapshot(qEscrow, (snap) => {
       const total = snap.docs.reduce((sum, doc) => sum + (doc.data().amount || 0), 0);
       setEscrowBalance(total);
+    }, (error) => {
+      console.error('Escrow listener failed:', error);
     });
 
     // 3. Listen to Transaction History
@@ -69,6 +77,8 @@ export default function PayoutsScreen() {
     );
     const unsubTrans = onSnapshot(qTrans, (snap) => {
       setTransactions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error('Transactions listener failed:', error);
     });
 
     // 4. Handle Redirect from Stripe

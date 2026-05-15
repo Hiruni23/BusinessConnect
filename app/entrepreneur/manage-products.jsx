@@ -38,6 +38,9 @@ export default function ManageProducts() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setProducts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
+    }, (error) => {
+      console.error('Manage products listener failed:', error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

@@ -1,0 +1,6 @@
+industry,riskLevel,fundingNeeded,location,successRate
+Tech,Low,50000,New York,90
+Health,Medium,100000,California,80
+Retail,High,20000,Texas,60
+Finance,Low,150000,London,85
+Food,High,30000,Chicago,50

@@ -45,6 +45,9 @@ export default function EntrepreneurMessages() {
         isUnread: doc.data().unreadBy?.includes(user.uid)
       })));
       setLoading(false);
+    }, (error) => {
+      console.error('Chats listener failed:', error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

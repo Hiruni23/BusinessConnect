@@ -30,6 +30,9 @@ export default function ExploreInnovations() {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPitches(list);
       setLoading(false);
+    }, (error) => {
+      console.error("Explore pitches listener failed:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

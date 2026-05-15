@@ -207,6 +207,22 @@ export default function StakeholderDashboard() {
              </Animated.View>
           </View>
 
+          {/* VIRTUAL COMMAND CENTER */}
+          <Animated.View entering={FadeInDown.delay(350).springify()} style={{ marginHorizontal: 20, marginTop: 15 }}>
+            <TouchableOpacity 
+              style={[s.kpiCard, { height: 70, flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: isDark ? '#4F46E5' : '#2563EB' }]}
+              onPress={() => router.push("/stakeholder/virtual-pitch-meeting")}
+            >
+              <Ionicons name="videocam" size={24} color="#fff" />
+              <View>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 8, fontWeight: '900', letterSpacing: 1 }}>VIRTUAL OPS</Text>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '900', marginTop: 2 }}>Launch Pitch Session</Text>
+              </View>
+              <View style={{ flex: 1 }} />
+              <Ionicons name="chevron-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </Animated.View>
+
           {/* POLISHED MARKET CHART */}
           <Animated.View entering={FadeInDown.delay(400).springify()} style={s.chartSection}>
              <View style={s.sectionHead}>

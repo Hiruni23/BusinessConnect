@@ -58,6 +58,8 @@ export default function StakeholderPitchDetails() {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setMilestones(list);
+      }, (error) => {
+        console.error('Milestones listener failed:', error);
       });
 
       return () => unsubscribe();

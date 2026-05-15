@@ -191,6 +191,9 @@ export default function RootLayout() {
          🔐 LOGGED IN USER
       =============================== */
       try {
+        // Wait for ID token to ensure Firestore rules can verify authentication
+        await user.getIdToken(true);
+        
         const snap = await getDoc(doc(db, "users", user.uid));
         const userData = snap.data();
 

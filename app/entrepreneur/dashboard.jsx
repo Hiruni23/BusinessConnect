@@ -296,6 +296,21 @@ export default function EntrepreneurDashboard() {
             </TouchableOpacity>
           </View>
 
+          <View style={[styles.actionRow, { marginTop: 12 }]}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/meetings")}>
+              <View style={styles.actionCard}>
+                <Ionicons name="calendar-outline" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Sessions</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { width: '64.5%' }]} onPress={() => router.push("/entrepreneur/virtual-pitch-meeting")}>
+              <LinearGradient colors={['#4F46E5', '#4338CA']} style={[styles.actionCard, { flexDirection: 'row', gap: 8 }]}>
+                <Ionicons name="videocam" size={18} color="#fff" />
+                <Text style={[styles.actionText, { color: '#fff', marginTop: 0 }]}>Virtual Pitch Session</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           {/* RECENT MESSAGES */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Conversations</Text>

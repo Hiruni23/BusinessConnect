@@ -2,7 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // --- BASIC HELPERS ---
     function signedIn() {
       return request.auth != null;
@@ -12,14 +12,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-
-
     function isRole(role) {
-      return signedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role != null &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.lower() == role.lower();
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && 'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role.lower() == role.lower();
     }
 
     function isStakeholder() {
@@ -41,145 +39,236 @@ service cloud.firestore {
     function isChatParticipant(chatId) {
       return signedIn() && (
         isAdmin() ||
-        (exists(/databases/$(database)/documents/chats/$(chatId)) && (
-          ('investorId' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid) ||
-          ('entrepreneurId' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid) ||
-          ('participants' in get(/databases/$(database)/documents/chats/$(chatId)).data && get(/databases/$(database)/documents/chats/$(chatId)).data.participants is list && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants)
-        ))
+        (
+          exists(/databases/$(database)/documents/chats/$(chatId)) &&
+          (
+            get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid ||
+            get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid ||
+            request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+          )
+        )
       );
     }
 
     function canAccessChat(data) {
       return signedIn() && (
-        ('investorId' in data && data.investorId == request.auth.uid) ||
-        ('entrepreneurId' in data && data.entrepreneurId == request.auth.uid) ||
-        ('participants' in data && data.participants is list && request.auth.uid in data.participants) ||
+        data.investorId == request.auth.uid ||
+        data.entrepreneurId == request.auth.uid ||
+        request.auth.uid in data.participants ||
         isAdmin()
       );
     }
 
-    // --- COLLECTION RULES ---
+    function canAccessCall(data) {
+      return signedIn() && (
+        data.callerId == request.auth.uid ||
+        data.receiverId == request.auth.uid ||
+        request.auth.uid in data.participants ||
+        isAdmin()
+      );
+    }
 
+    // --- USERS ---
     match /users/{userId} {
       allow read: if signedIn();
       allow create, update, delete: if isOwner(userId) || isAdmin();
     }
 
+    // --- PITCHES ---
     match /pitches/{pitchId} {
-      allow read: if signedIn(); 
-      allow create: if isEntrepreneur();
-      allow update: if signedIn() && (
-        isOwner(resource.data.userId) || isOwner(resource.data.entrepreneurId)
-        || isInvestor() // Investors can express interest (updates raisedAmount/interested)
-        || isStakeholder() // Stakeholders update vetting status
-        || isAdmin()
-      );
-    }
-
-    match /milestones/{milestoneId} {
-      // Global read for stakeholders to find vetting tasks
       allow read: if signedIn();
       allow create: if isEntrepreneur();
       allow update: if signedIn() && (
-        (isEntrepreneur() && resource.data.entrepreneurId == request.auth.uid) ||
-        isStakeholder() || isAdmin()
+        isOwner(resource.data.userId) ||
+        isOwner(resource.data.entrepreneurId) ||
+        isInvestor() ||
+        isStakeholder() ||
+        isAdmin()
       );
     }
 
+    // --- MILESTONES ---
+    match /milestones/{milestoneId} {
+      allow read: if signedIn();
+      allow create: if isEntrepreneur();
+      allow update: if signedIn() && (
+        resource.data.entrepreneurId == request.auth.uid ||
+        isStakeholder() ||
+        isAdmin()
+      );
+    }
+
+    // --- MEETINGS ---
     match /meetings/{meetingId} {
-      // Diagnostic proved list/get works if auth. 
-      // Restoring privacy: only participants can see the meeting.
       allow read: if signedIn() && (
-        resource.data.stakeholderId == request.auth.uid || 
-        resource.data.entrepreneurId == request.auth.uid
+        resource.data.stakeholderId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        resource.data.investorId == request.auth.uid ||
+        isAdmin()
       );
-      
-      // Allow creation if the user is authenticated and claiming their own ID
-      allow create: if signedIn() && request.resource.data.stakeholderId == request.auth.uid;
-      
-      allow update, delete: if signedIn() && request.auth.uid == resource.data.stakeholderId;
-    }
 
-    match /notifications/{notificationId} {
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid || isAdmin());
       allow create: if signedIn();
-      allow update: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid || isAdmin());
+
+      allow update, delete: if signedIn() && (
+        resource.data.stakeholderId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        resource.data.investorId == request.auth.uid ||
+        isAdmin()
+      );
     }
 
+    // --- CALLS ---
+    match /calls/{callId} {
+      // Create requires an explicit participants array [callerId, receiverId]
+      allow create: if signedIn() && (
+        'participants' in request.resource.data &&
+        request.resource.data.participants is list &&
+        request.resource.data.participants.size() == 2 &&
+        'callerId' in request.resource.data &&
+        'receiverId' in request.resource.data &&
+        request.resource.data.participants[0] == request.resource.data.callerId &&
+        request.resource.data.participants[1] == request.resource.data.receiverId &&
+        (request.resource.data.callerId == request.auth.uid || request.resource.data.receiverId == request.auth.uid)
+      );
+
+      // Reads allowed only to participants or admins
+      allow read: if signedIn() && (
+        ('participants' in resource.data && request.auth.uid in resource.data.participants) || isAdmin()
+      );
+
+      // Updates allowed to participants, but participants array cannot be changed by non-admins
+      allow update: if signedIn() && (
+        (('participants' in resource.data && request.auth.uid in resource.data.participants) || isAdmin()) &&
+        (isAdmin() || ('participants' in request.resource.data && request.resource.data.participants == resource.data.participants))
+      );
+
+      // Deletes allowed to participants or admins
+      allow delete: if signedIn() && (('participants' in resource.data && request.auth.uid in resource.data.participants) || isAdmin());
+    }
+
+    // --- NOTIFICATIONS ---
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        isAdmin()
+      );
+
+      allow create: if signedIn();
+
+      allow update: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // --- SYSTEM SETTINGS ---
     match /system_settings/{settingId} {
       allow read: if signedIn();
       allow write: if isAdmin();
     }
 
+    // --- PITCH VIEWS ---
     match /pitchViews/{viewId} {
       allow create: if signedIn() && request.resource.data.investorId == request.auth.uid;
+
       allow read: if signedIn() && (
         resource.data.investorId == request.auth.uid ||
-        resource.data.entrepreneurId == request.auth.uid
+        resource.data.entrepreneurId == request.auth.uid ||
+        isAdmin()
       );
     }
 
+    // --- CHATS ---
     match /chats/{chatId} {
-      allow read: if resource == null || canAccessChat(resource.data);
+      allow read: if canAccessChat(resource.data);
       allow create: if canAccessChat(request.resource.data);
       allow update: if canAccessChat(resource.data);
-      
+
       match /messages/{messageId} {
         allow read, create: if isChatParticipant(chatId);
       }
     }
 
+    // --- TRANSACTIONS ---
     match /transactions/{transactionId} {
       allow read: if signedIn() && (
         resource.data.investorId == request.auth.uid ||
         resource.data.entrepreneurId == request.auth.uid ||
-        resource.data.userId == request.auth.uid
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
       );
+
       allow create: if isInvestor();
     }
 
+    // --- INVESTMENTS ---
     match /investments/{investmentId} {
       allow read: if signedIn() && (
         resource.data.investorId == request.auth.uid ||
         resource.data.entrepreneurId == request.auth.uid ||
         isAdmin()
       );
+
       allow create: if isInvestor();
       allow update: if isAdmin();
     }
 
+    // --- WALLETS ---
     match /wallets/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if signedIn();
-      allow update: if isAdmin() || isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
     }
 
+    // --- PRODUCTS ---
     match /products/{productId} {
       allow read: if signedIn();
       allow create: if isEntrepreneur() || isAdmin();
-      allow update: if signedIn() && (isAdmin() || isOwner(resource.data.sellerId));
-      allow delete: if isAdmin() || isOwner(resource.data.sellerId);
+
+      allow update: if signedIn() && (
+        isAdmin() ||
+        isOwner(resource.data.sellerId)
+      );
+
+      allow delete: if signedIn() && (
+        isAdmin() ||
+        isOwner(resource.data.sellerId)
+      );
     }
 
+    // --- OFFERS ---
     match /offers/{offerId} {
-      allow read: if signedIn() && isRole('Customer');
+      allow read: if signedIn();
       allow create, update, delete: if isAdmin();
     }
 
+    // --- CART ---
     match /cart/{cartId} {
       allow read, write: if isOwner(cartId);
     }
 
+    // --- ORDERS ---
     match /orders/{orderId} {
-      allow read: if signedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
       allow create: if signedIn();
       allow update: if isAdmin();
     }
 
+    // --- REVIEWS ---
     match /reviews/{reviewId} {
       allow read: if signedIn();
       allow create: if signedIn();
-      allow update, delete: if signedIn() && (isAdmin() || isOwner(resource.data.userId));
+
+      allow update, delete: if signedIn() && (
+        isAdmin() ||
+        isOwner(resource.data.userId)
+      );
     }
 
     // --- CATCH ALL ---

@@ -195,7 +195,15 @@ export default function ScheduleMeeting() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(400).springify()}>
-            <Text style={s.sectionTitle}>4. Virtual Connection</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={s.sectionTitle}>4. Virtual Connection</Text>
+              <TouchableOpacity onPress={() => {
+                const room = `businessconnect-pitch-${Math.random().toString(36).substring(7)}`;
+                setMeetingLink(`https://meet.jit.si/${room}`);
+              }}>
+                <Text style={[s.sectionTitle, { color: T.accent, marginTop: 0 }]}>GENERATE BC LINK</Text>
+              </TouchableOpacity>
+            </View>
             <View style={s.inputCard}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Ionicons name="link-outline" size={20} color={T.accent} />
@@ -209,7 +217,7 @@ export default function ScheduleMeeting() {
               />
               </View>
             </View>
-            <Text style={s.hintText}>Leave empty if meeting in-person or to be decided.</Text>
+            <Text style={s.hintText}>Leave empty if meeting in-person or use the generator for a secure BC Pitch room.</Text>
           </Animated.View>
 
           {show && (

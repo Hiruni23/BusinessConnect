@@ -57,6 +57,9 @@ export default function ProfessionalNotifications() {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setNotifications(list);
       setLoading(false);
+    }, (error) => {
+      console.error('Notifications listener failed:', error);
+      setLoading(false);
     });
 
     return unsubscribe;

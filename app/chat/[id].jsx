@@ -29,6 +29,8 @@ import {
   updateDoc,
   arrayRemove,
   getDoc,
+  where,
+  limit,
 } from "firebase/firestore";
 import { auth, db, storage } from "../../firebaseConfig";
 
@@ -72,6 +74,7 @@ export default function ChatScreen() {
   const [otherUserStatus, setOtherUserStatus] = useState("offline");
   const [lastNotifiedId, setLastNotifiedId] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [incomingCall, setIncomingCall] = useState(null);
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -113,7 +116,7 @@ export default function ChatScreen() {
         }
       },
       (error) => {
-        console.error("Chat metadata listener failed:", error);
+        console.error("DEBUG: Chat metadata listener failed:", error);
         setLoading(false);
       }
     );
@@ -140,7 +143,7 @@ export default function ChatScreen() {
         }
       },
       (error) => {
-        console.error("User status listener failed:", error);
+        console.error("DEBUG: User status listener failed:", error);
         setOtherUserStatus("offline");
       }
     );
@@ -203,13 +206,104 @@ export default function ChatScreen() {
         }
       },
       (error) => {
-        console.error("Messages listener failed:", error, { chatId: id, uid: user?.uid });
+        console.error("DEBUG: Messages listener failed:", error, { chatId: id, uid: user?.uid });
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
   }, [id, lastNotifiedId, user, chatData]);
+
+  // Listen for Incoming Calls
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "calls"),
+      where("participants", "array-contains", user.uid),
+      where("status", "==", "started"),
+      limit(1)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const callData = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        setIncomingCall(callData);
+      } else {
+        setIncomingCall(null);
+      }
+    }, (error) => {
+      console.error("DEBUG: Incoming call listener failed:", error);
+    });
+
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const startVideoCall = async () => {
+    if (!chatData || !id || !user) return;
+
+    const receiverId = chatData.participants.find((p) => p !== user.uid);
+    if (!receiverId) {
+      Alert.alert("Error", "Could not find receiver.");
+      return;
+    }
+
+    try {
+      const callData = {
+        chatId: id,
+        roomId: id, // Using chatId as roomId for simplicity
+        callerId: user.uid,
+        callerName: user.displayName || "Someone",
+        receiverId: receiverId,
+        participants: [user.uid, receiverId],
+        status: "started",
+        type: "video",
+        createdAt: serverTimestamp(),
+      };
+
+      await addDoc(collection(db, "calls"), callData);
+
+      router.push({
+        pathname: "/chat/call",
+        params: { roomId: id },
+      });
+    } catch (error) {
+      console.error("Error starting call:", error);
+      Alert.alert("Error", "Failed to start call.");
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!incomingCall) return;
+
+    try {
+      await updateDoc(doc(db, "calls", incomingCall.id), {
+        status: "accepted",
+      });
+      const roomId = incomingCall.roomId;
+      setIncomingCall(null);
+      router.push({
+        pathname: "/chat/call",
+        params: { roomId },
+      });
+    } catch (error) {
+      console.error("Error accepting call:", error);
+    }
+  };
+
+  const declineCall = async () => {
+    if (!incomingCall) return;
+
+    try {
+      await updateDoc(doc(db, "calls", incomingCall.id), {
+        status: "declined",
+      });
+      setIncomingCall(null);
+    } catch (error) {
+      console.error("Error declining call:", error);
+    }
+  };
 
   const sendPushNotification = async (targetToken, msgText) => {
     const message = {
@@ -363,7 +457,7 @@ export default function ChatScreen() {
             style={styles.fileBubble}
           >
             <View style={styles.fileIconContainer}>
-              <Ionicons name="document-text" size={24} color="#047857" />
+              <Ionicons name="document-text" size={24} color="#4F46E5" />
             </View>
             <View style={styles.fileTextContainer}>
               <Text style={styles.fileName} numberOfLines={1}>
@@ -409,7 +503,7 @@ export default function ChatScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} color="#064E3B" />
+          <Ionicons name="chevron-back" size={28} color="#1E293B" />
         </TouchableOpacity>
         
         <View style={styles.headerInfo}>
@@ -420,7 +514,7 @@ export default function ChatScreen() {
                 styles.statusDot,
                 {
                   backgroundColor:
-                    otherUserStatus === "online" ? "#22C55E" : "#94A3B8",
+                    otherUserStatus === "online" ? "#10B981" : "#94A3B8",
                 },
               ]}
             />
@@ -433,17 +527,21 @@ export default function ChatScreen() {
         {/* COMMUNICATION ICONS */}
         <View style={styles.headerIcons}>
           <TouchableOpacity onPress={handlePhoneCall} style={styles.iconBtnHeader}>
-            <Ionicons name="call-outline" size={22} color="#064E3B" />
+            <Ionicons name="call-outline" size={22} color="#1E293B" />
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleWhatsApp} style={styles.iconBtnHeader}>
             <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
           </TouchableOpacity>
+
+          <TouchableOpacity onPress={startVideoCall} style={styles.iconBtnHeader}>
+            <Ionicons name="videocam" size={24} color="#4F46E5" />
+          </TouchableOpacity>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#047857" style={{ flex: 1 }} />
+        <ActivityIndicator size="large" color="#4F46E5" style={{ flex: 1 }} />
       ) : (
         <>
           {messages.length === 0 && !loading && (
@@ -474,7 +572,7 @@ export default function ChatScreen() {
         <View style={styles.inputContainer}>
           <TouchableOpacity onPress={pickDocument} disabled={isUploading} style={styles.attachBtn}>
             {isUploading ? (
-              <ActivityIndicator size="small" color="#047857" />
+              <ActivityIndicator size="small" color="#4F46E5" />
             ) : (
               <Ionicons name="attach" size={24} color="#64748B" />
             )}
@@ -492,6 +590,29 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* INCOMING CALL OVERLAY */}
+      {incomingCall && (
+        <View style={styles.callOverlay}>
+          <View style={styles.callCard}>
+            <Ionicons name="videocam" size={48} color="#4F46E5" />
+            <Text style={styles.callTitle}>Incoming Video Call</Text>
+            <Text style={styles.callSub}>{incomingCall.callerName} is calling you...</Text>
+            
+            <View style={styles.callActions}>
+              <TouchableOpacity style={[styles.callBtn, styles.declineBtn]} onPress={declineCall}>
+                <Ionicons name="close" size={24} color="#fff" />
+                <Text style={styles.callBtnText}>Decline</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.callBtn, styles.acceptBtn]} onPress={acceptCall}>
+                <Ionicons name="checkmark" size={24} color="#fff" />
+                <Text style={styles.callBtnText}>Accept</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -502,13 +623,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 15,
-    backgroundColor: "#DCFCE7",
+    backgroundColor: "#EEF2FF",
     borderBottomWidth: 1,
-    borderBottomColor: "#BBF7D0",
+    borderBottomColor: "#E0E7FF",
   },
   headerInfo: { flex: 1, marginLeft: 10 },
-  headerTitle: { fontSize: 17, fontWeight: "800", color: "#064E3B" },
-  headerSub: { fontSize: 11, color: "#047857", opacity: 0.7 },
+  headerTitle: { fontSize: 17, fontWeight: "800", color: "#1E293B" },
+  headerSub: { fontSize: 11, color: "#4F46E5", opacity: 0.8, fontWeight: "500" },
   statusDot: {
     width: 8,
     height: 8,
@@ -525,7 +646,7 @@ const styles = StyleSheet.create({
   myWrapper: { alignSelf: "flex-end" },
   theirWrapper: { alignSelf: "flex-start" },
   bubble: { padding: 12, borderRadius: 20 },
-  myBubble: { backgroundColor: "#047857", borderBottomRightRadius: 2 },
+  myBubble: { backgroundColor: "#4F46E5", borderBottomRightRadius: 2 },
   theirBubble: { backgroundColor: "#fff", borderBottomLeftRadius: 2, elevation: 1 },
   messageText: { fontSize: 15 },
   myText: { color: "#fff" },
@@ -544,7 +665,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#DCFCE7",
+    backgroundColor: "#EEF2FF",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -608,9 +729,63 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: "#047857",
+    backgroundColor: "#4F46E5",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
+  },
+  callOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  callCard: {
+    width: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  callTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#1E293B",
+    marginTop: 15,
+  },
+  callSub: {
+    fontSize: 14,
+    color: "#64748B",
+    marginTop: 5,
+    marginBottom: 25,
+  },
+  callActions: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  callBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    gap: 8,
+  },
+  acceptBtn: {
+    backgroundColor: "#22C55E",
+  },
+  declineBtn: {
+    backgroundColor: "#EF4444",
+  },
+  callBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
   },
 });
