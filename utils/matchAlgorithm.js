@@ -109,4 +109,26 @@ const matchAlgorithm = (entrepreneur, investorsList) => {
     .sort((a, b) => b.score - a.score);
 };
 
+export const calculateInvestorMatch = (investor, business) => {
+  let score = 0;
+
+  if (investor.industry === business.category) {
+    score += 40;
+  }
+
+  if (investor.riskLevel === business.riskLevel) {
+    score += 30;
+  }
+
+  if (investor.budget >= business.fundingNeeded) {
+    score += 20;
+  }
+
+  if (investor.location === business.location) {
+    score += 10;
+  }
+
+  return score;
+};
+
 export default matchAlgorithm;

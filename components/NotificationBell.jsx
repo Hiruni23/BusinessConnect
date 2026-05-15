@@ -49,7 +49,8 @@ export default function NotificationBell({ routePath = '/notifications', color =
         setCount(unreadCount);
       },
       (error) => {
-        console.error('Notification bell listener failed:', error);
+        console.error('Firestore Error - Notification bell:', error.message);
+        console.error('Code:', error.code);
         setCount(0);
       },
     );

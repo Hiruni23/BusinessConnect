@@ -147,13 +147,14 @@ export default function StakeholderMeetings() {
             <TouchableOpacity 
                 style={[s.smallBtn, { backgroundColor: T.accent, flexDirection: 'row', gap: 6 }]}
                 onPress={() => {
-                    Linking.canOpenURL(item.meetingLink).then(supported => {
-                        if (supported) {
-                            Linking.openURL(item.meetingLink);
-                        } else {
-                            Alert.alert("Invalid Link", "This meeting link is not valid.");
-                        }
-                    });
+                    if (item.meetingLink.includes("jit.si")) {
+                        router.push({
+                            pathname: "/stakeholder/virtual-pitch-meeting",
+                            params: { url: item.meetingLink, title: item.title }
+                        });
+                    } else {
+                        Linking.openURL(item.meetingLink);
+                    }
                 }}
             >
                 <Ionicons name="videocam" size={14} color="#fff" />

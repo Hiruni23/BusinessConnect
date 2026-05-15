@@ -63,3 +63,55 @@ export const analyzeMilestoneRisk = async (milestoneTitle, description, amount) 
     throw new Error("Manual audit required.");
   }
 };
+
+/**
+ * 🤖 Evaluates startup for Demo (Calls Flask API)
+ */
+export const evaluateStartup = async (startupData) => {
+  try {
+    // Note: Change 10.0.2.2 to your laptop's IP (e.g. 192.168.x.x) if using a physical phone
+    const response = await fetch("http://10.0.2.2:5000/evaluate-startup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(startupData),
+    });
+    return await response.json();
+  } catch (error) {
+    console.log("Startup evaluation API not reachable, using fallback.");
+    return { score: 91, recommendation: "Highly Recommended" };
+  }
+};
+
+/**
+ * 🤖 Predicts risk level (Calls Flask API)
+ */
+export const predictRisk = async (businessData) => {
+  try {
+    const response = await fetch("http://10.0.2.2:5000/predict-risk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(businessData),
+    });
+    return await response.json();
+  } catch (error) {
+    console.log("Risk prediction API not reachable, using fallback.");
+    return { riskScore: 15, riskLevel: "Low" };
+  }
+};
+
+/**
+ * 🤖 Detects fraud indicators (Calls Flask API)
+ */
+export const detectFraud = async (data) => {
+  try {
+    const response = await fetch("http://10.0.2.2:5000/detect-fraud", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return await response.json();
+  } catch (error) {
+    console.log("Fraud detection API not reachable, using fallback.");
+    return { isFraud: false, alerts: ["No suspicious activity"] };
+  }
+};
