@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useStripe } from '@stripe/stripe-react-native';
-import { db, auth, functions } from '../firebaseConfig';
+import { auth, functions } from '../firebaseConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function PaymentGateway({ 
   amount, 
-  projectId, 
-  projectTitle, 
-  entrepreneurId, 
+  onProcessPayment, 
   onSuccess, 
   onCancel 
 }) {
@@ -77,38 +74,8 @@ export default function PaymentGateway({
     setStep('processing');
     
     try {
-      const user = auth.currentUser;
-      
-      // 1. Create Investment Record (Escrow)
-      await addDoc(collection(db, "investments"), {
-        projectId: projectId || "unknown",
-        projectTitle: projectTitle || "Marketplace Investment",
-        investorId: user.uid,
-        investorEmail: user.email || "anonymous",
-        entrepreneurId: entrepreneurId || "unknown",
-        amount: Number(amount),
-        status: "escrow", 
-        createdAt: serverTimestamp()
-      });
-
-      // 2. Record Transaction
-      await addDoc(collection(db, "transactions"), {
-        pitchId: projectId || "unknown",
-        pitchTitle: projectTitle || "Marketplace Investment",
-        investorId: user.uid,
-        investorEmail: user.email || "anonymous",
-        entrepreneurId: entrepreneurId || "unknown",
-        amount: Number(amount),
-        timestamp: serverTimestamp(),
-        type: 'equity_investment',
-        status: 'escrow'
-      });
-
-      // 3. Update Pitch Stats
-      if (projectId) {
-        await updateDoc(doc(db, "pitches", projectId), {
-          interested: increment(1)
-        });
+      if (onProcessPayment) {
+        await onProcessPayment();
       }
 
       setStep('success');

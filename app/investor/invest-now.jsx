@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { db, auth } from '../../firebaseConfig';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, increment } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,6 +54,43 @@ export default function InvestNow() {
     setTimeout(() => {
       router.replace('/investor/dashboard');
     }, 3000);
+  };
+
+  const handleProcessPayment = async () => {
+    const user = auth.currentUser;
+    const numericAmount = Number(amount);
+    
+    // 1. Create Investment Record (Escrow)
+    await addDoc(collection(db, "investments"), {
+      projectId: pitchId || "unknown",
+      projectTitle: pitchTitle || "Marketplace Investment",
+      investorId: user.uid,
+      investorEmail: user.email || "anonymous",
+      entrepreneurId: entrepreneurId || "unknown",
+      amount: numericAmount,
+      status: "escrow", 
+      createdAt: serverTimestamp()
+    });
+
+    // 2. Record Transaction
+    await addDoc(collection(db, "transactions"), {
+      pitchId: pitchId || "unknown",
+      pitchTitle: pitchTitle || "Marketplace Investment",
+      investorId: user.uid,
+      investorEmail: user.email || "anonymous",
+      entrepreneurId: entrepreneurId || "unknown",
+      amount: numericAmount,
+      timestamp: serverTimestamp(),
+      type: 'equity_investment',
+      status: 'escrow'
+    });
+
+    // 3. Update Pitch Stats
+    if (pitchId) {
+      await updateDoc(doc(db, "pitches", pitchId), {
+        interested: increment(1)
+      });
+    }
   };
 
   if (success) {
@@ -145,9 +183,7 @@ export default function InvestNow() {
           <View style={styles.modalOverlay}>
             <PaymentGateway 
               amount={amount}
-              projectId={pitchId}
-              projectTitle={pitchTitle}
-              entrepreneurId={entrepreneurId}
+              onProcessPayment={handleProcessPayment}
               onSuccess={handlePaymentSuccess}
               onCancel={() => setShowGateway(false)}
             />
