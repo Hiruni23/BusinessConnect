@@ -30,27 +30,6 @@ This project was developed as part of the **PUSL3190 Academic Project**.
 - GitHub Actions (CI/CD)
 
 ---
-
-## 📂 Project Structure
-
-BUSINESSCONNECT/
-│── admin-dashboard/ # Web Admin Panel
-│── app/ # Mobile App (Expo Router)
-│── assets/
-│── components/
-│── context/
-│── functions/ # Firebase Cloud Functions
-│── services/
-│── styles/
-│── utils/
-│── firebaseConfig.ts
-│── firestore.rules
-│── package.json
-│── README.md
-
-
----
-
 # 📱 Mobile App Setup
 
 ## Install Dependencies
@@ -84,11 +63,3 @@ Run Unit Tests
 npm test
 
 CI/CD is configured using GitHub Actions.
-
-👩‍🏫 Supervisor
-Ms. Dharani Ranasinghe
-
-📌 Project Type
-
-Final Year Academic Project
-Module: PUSL3190
