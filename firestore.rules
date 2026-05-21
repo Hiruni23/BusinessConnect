@@ -203,6 +203,14 @@ service cloud.firestore {
       allow create: if isInvestor();
     }
 
+    // --- PAYOUTS ---
+    match /payouts/{payoutId} {
+      allow read: if signedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
     // --- INVESTMENTS ---
     match /investments/{investmentId} {
       allow read: if signedIn() && (
