@@ -5,12 +5,48 @@ const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const templates = require("./emailTemplates");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const stripe = require("stripe")("sk_test_51TOKSuCDZMl8sA2g91wKmQS6m18tHCQKcb2NV3Iy7kI9maTwb8NzJsDFiy8uROS4aGoV76USDPG1IuSPJ2iVRv6b00keVElovj");
+const Stripe = require("stripe");
 
 admin.initializeApp();
 
+// Load secrets from environment first, then Firebase Functions config.
+function getFirebaseConfigValue(configPath) {
+  try {
+    const parts = configPath.split(".");
+    let config = require("firebase-functions").config();
+    for (const part of parts) {
+      config = config?.[part];
+      if (!config) return "";
+    }
+    return String(config);
+  } catch (error) {
+    return "";
+  }
+}
+
+function getSecret(envVar, configPath) {
+  return process.env[envVar] || getFirebaseConfigValue(configPath) || "";
+}
+
+const stripeSecret = getSecret("STRIPE_SECRET_KEY", "stripe.secret_key");
+const webhookSecret = getSecret("STRIPE_WEBHOOK_SECRET", "stripe.webhook_secret");
+const geminiKeyEnv = getSecret("GEMINI_API_KEY", "gemini.api_key");
+const emailUser = getSecret("EMAIL_USER", "email.user");
+const emailPass = getSecret("EMAIL_PASS", "email.pass");
+
+if (!stripeSecret) {
+  console.warn("STRIPE_SECRET_KEY not configured. Set via .env (local) or `firebase functions:config:set stripe.secret_key=...` (production)");
+}
+
+function getStripeClient() {
+  if (!stripeSecret) {
+    throw new Error("STRIPE_SECRET_KEY is not configured.");
+  }
+  return new Stripe(stripeSecret);
+}
+
 // Initialize Gemini AI
-const rawKey = process.env.GEMINI_API_KEY || "YOUR_GEMINI_API_KEY";
+const rawKey = geminiKeyEnv || "YOUR_GEMINI_API_KEY";
 const cleanKey = rawKey.replace(/^["']|["']$/g, '');
 const genAI = new GoogleGenerativeAI(cleanKey);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -144,6 +180,7 @@ exports.createPaymentIntent = onCall(async (request) => {
   }
 
   try {
+    const stripe = getStripeClient();
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: currency || "usd",
@@ -165,6 +202,7 @@ exports.createConnectAccount = onCall(async (request) => {
   if (!uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
+    const stripe = getStripeClient();
     const db = admin.firestore();
     const userDocRef = db.collection("users").doc(uid);
     const userSnap = await userDocRef.get();
@@ -199,6 +237,7 @@ exports.createConnectAccountLink = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
+    const stripe = getStripeClient();
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: 'https://us-central1-businessconnect-b6310.cloudfunctions.net/stripeRedirect',
@@ -219,6 +258,7 @@ exports.getConnectBalance = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
+    const stripe = getStripeClient();
     const balance = await stripe.balance.retrieve({}, { stripeAccount: accountId });
     return { balance };
   } catch (error) {
@@ -234,6 +274,7 @@ exports.processConnectPayout = onCall(async (request) => {
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
   try {
+    const stripe = getStripeClient();
     const payout = await stripe.payouts.create({ amount, currency: "usd" }, { stripeAccount: accountId });
     return { payout };
   } catch (error) {
@@ -256,8 +297,8 @@ exports.stripeRedirect = onRequest((req, res) => {
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER || "placeholder@gmail.com",
-    pass: process.env.EMAIL_PASS || "placeholder_pass",
+    user: emailUser || "placeholder@gmail.com",
+    pass: emailPass || "placeholder_pass",
   },
 });
 
@@ -368,3 +409,73 @@ exports.onMilestoneStatusChangeEmail = onDocumentUpdated(
     });
   }
 );
+
+/* =====================================================
+   🔟 Stripe Webhook for Real-Time Payouts
+===================================================== */
+exports.stripeWebhook = onRequest(async (req, res) => {
+  const signature = req.headers["stripe-signature"];
+  const stripe = getStripeClient();
+
+  if (!webhookSecret) {
+    console.error("STRIPE_WEBHOOK_SECRET is not configured.");
+    return res.status(500).send("Webhook secret is not configured.");
+  }
+
+  if (!signature) {
+    return res.status(400).send("Missing Stripe signature header.");
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      signature,
+      webhookSecret
+    );
+  } catch (err) {
+    console.error("Webhook signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  try {
+    const db = admin.firestore();
+    const type = event.type;
+    const data = event.data.object;
+
+    if (type === "payout.created" || type === "payout.paid" || type === "payout.failed") {
+      const accountId = event.account; // Stripe Connect account ID if applicable
+      const payoutStatus = data.status; // 'pending', 'paid', 'failed', 'canceled'
+      const amount = data.amount / 100;
+
+      // We need to find the user with this stripeAccountId
+      const usersSnap = await db.collection("users").where("stripeAccountId", "==", accountId).limit(1).get();
+
+      if (!usersSnap.empty) {
+        const userId = usersSnap.docs[0].id;
+
+        // Update or create a payout record
+        const payoutRef = db.collection("payouts").doc(data.id);
+        await payoutRef.set({
+          id: data.id,
+          userId: userId,
+          amount: amount,
+          status: payoutStatus,
+          currency: data.currency,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          arrivalDate: data.arrival_date ? new Date(data.arrival_date * 1000) : null,
+          bankLast4: data.destination ? "Bank" : "Card"
+        }, { merge: true });
+
+        console.log(`Updated payout ${data.id} to status ${payoutStatus} for user ${userId}`);
+      }
+    } else if (type === "payment_intent.succeeded") {
+      console.log("Payment Intent Succeeded:", data.id);
+    }
+
+    res.status(200).send({ received: true });
+  } catch (err) {
+    console.error("Webhook Error:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+});
