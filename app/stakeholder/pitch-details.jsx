@@ -28,6 +28,7 @@ export default function StakeholderPitchDetails() {
   const { id } = useLocalSearchParams();
   const user = auth.currentUser;
   const { theme: T, isDark } = useTheme();
+  const s = makeStyles(T, isDark);
   
   const [pitch, setPitch] = useState(null);
   const [milestones, setMilestones] = useState([]);
@@ -154,8 +155,6 @@ export default function StakeholderPitchDetails() {
   const raisedAmount = Number(pitch?.raisedAmount || 0);
   const fundingGoal = Number(pitch?.fundingGoal || 0);
   const progressPercent = fundingGoal > 0 ? Math.min((raisedAmount / fundingGoal) * 100, 100) : 0;
-
-  const s = makeStyles(T, isDark);
 
   return (
     <View style={s.container}>

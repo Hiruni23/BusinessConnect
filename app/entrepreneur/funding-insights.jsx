@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator } from 'react-native';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,11 +11,26 @@ export default function FundingInsights() {
   const [investors, setInvestors] = useState([]);
   const [pendingInvestments, setPendingInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) return;
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribeAuth;
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setInvestors([]);
+      setPendingInvestments([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
 
     // Query only this entrepreneur's transactions so Firestore rules can authorize it.
     const q = query(
@@ -35,7 +51,7 @@ export default function FundingInsights() {
 
     const qPending = query(
       collection(db, "investments"),
-      where("businessId", "==", user.uid),
+      where("entrepreneurId", "==", user.uid),
       where("status", "==", "pending")
     );
     const unsubPending = onSnapshot(qPending, (snapshot) => {

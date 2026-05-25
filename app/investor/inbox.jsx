@@ -46,6 +46,7 @@ export default function InvestorInbox() {
       await addDoc(collection(db, "chats"), {
         entrepreneurId: entrepreneurId,
         investorId: user.uid,
+        participants: [user.uid, entrepreneurId],
         updatedAt: serverTimestamp(),
         unreadBy: [],
         lastMessage: "Connection accepted! You can now chat.",

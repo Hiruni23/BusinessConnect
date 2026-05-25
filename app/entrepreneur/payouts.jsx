@@ -176,9 +176,12 @@ export default function PayoutsScreen() {
       return;
     }
 
-    const availableAmount = balance; // Use internal wallet balance for payout
+    const availableAmount = balance;
     if (availableAmount <= 0) {
-      Alert.alert("Notice", "No available funds to withdraw.");
+      Alert.alert(
+        "No Available Funds",
+        "There are no funds in your entrepreneur wallet to withdraw."
+      );
       return;
     }
 
@@ -222,6 +225,7 @@ export default function PayoutsScreen() {
               <Text style={styles.balanceLabel}>Real-Time Payout Balance</Text>
             </View>
             <Text style={styles.balanceBig}>${balance.toLocaleString()}</Text>
+            <Text style={styles.balanceSubtext}>Stripe available: ${stripeBalance.available.toLocaleString()}</Text>
             
             <View style={styles.stripeInfo}>
                <Text style={styles.statusBadge}>
@@ -290,13 +294,8 @@ export default function PayoutsScreen() {
         }]}>
           <Ionicons name={bankConnected ? "checkmark-circle" : "time"} size={20} color={bankConnected ? "#10B981" : "#F59E0B"} />
           <Text style={[styles.infoText, { color: bankConnected ? '#065F46' : '#92400E', fontWeight: 'bold' }]}>
-            Payout Status: {payoutStatus}
+            {bankConnected ? 'Bank account linked and ready.' : 'Bank account not linked yet.'}
           </Text>
-        </View>
-
-        <View style={styles.statusCard}>
-          <Text style={styles.statusTitle}>Payout Status</Text>
-          <Text style={styles.statusText}>{payoutStatus}</Text>
         </View>
 
         <Text style={styles.sectionTitle}>Transaction Gateway Feed</Text>
@@ -365,6 +364,7 @@ const styles = StyleSheet.create({
   gateLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   balanceBig: { color: '#fff', fontSize: 48, fontWeight: '900' },
+  balanceSubtext: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '700', marginTop: 4 },
   stripeInfo: { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   statusBadge: { color: '#fff', fontSize: 11, fontWeight: '600', textAlign: 'center' },
   withdrawButton: { backgroundColor: '#fff', width: '100%', paddingVertical: 16, borderRadius: 16, marginTop: 25, alignItems: 'center' },

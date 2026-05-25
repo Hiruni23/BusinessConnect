@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ActivityIndicator, StatusBar, Dimensions } from 'react-native';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '../../firebaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,12 +15,29 @@ const CATEGORIES = ["All", "Tech", "Bio", "Green", "Fin", "Space", "AI"];
 
 export default function ExploreInnovations() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
   const [pitches, setPitches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return unsubscribeAuth;
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setPitches([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
     const q = query(
       collection(db, "pitches"),
       where("status", "==", "Open"),
@@ -36,7 +54,7 @@ export default function ExploreInnovations() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   const filteredPitches = pitches.filter(p => 
     (selectedCategory === "All" || p.category === selectedCategory) &&

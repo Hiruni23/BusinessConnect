@@ -326,7 +326,7 @@ const LightBottomNav = ({ router, hasUnread }) => (
   <BlurView intensity={90} tint="light" style={styles.bottomNav}>
     <NavIcon icon="grid" active onPress={() => router.push("/investor/dashboard")} />
     <NavIcon icon="briefcase" onPress={() => router.push("/investor/portfolio")} />
-    <TouchableOpacity style={styles.mainAction} onPress={() => Alert.alert("Search", "Refining market view...")}>
+    <TouchableOpacity style={styles.mainAction} onPress={() => router.push("/investor/search") }>
       <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.mainActionGradient}>
         <Ionicons name="search" size={24} color="#FFF" />
       </LinearGradient>

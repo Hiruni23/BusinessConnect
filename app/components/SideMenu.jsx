@@ -42,10 +42,11 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
 
   // --- ROLE-BASED NAVIGATION ITEMS ---
   const entrepreneurItems = [
-    { label: "Dashboard", icon: "grid-outline", path: "/entrepreneur/dashboard" },  
     { label: "My Pitches", icon: "rocket-outline", path: "/entrepreneur/my-pitches" },
     { label: "Manage Products", icon: "cube-outline", path: "/entrepreneur/manage-products" },
     { label: "Meeting Sessions", icon: "calendar-outline", path: "/entrepreneur/meetings" },
+    { label: "Book Consultation", icon: "chatbubbles-outline", path: "/entrepreneur/book-consultation" },
+    { label: "Consultation Requests", icon: "chatbubble-ellipses-outline", path: "/entrepreneur/consultation-requests" },
     { label: "Notifications", icon: "notifications-outline", path: "/entrepreneur/notifications" },
   ];
 
@@ -62,6 +63,11 @@ const SideMenu = ({ visible, onClose, userData, onLogout, router }) => {
     { label: "Meeting Sessions", icon: "calendar-outline", path: "/stakeholder/meetings" },
     { label: "Audit Roadmap", icon: "git-branch-outline", path: "/stakeholder/calendar" },
     { label: "Market Intel", icon: "analytics-outline", path: "/stakeholder/analytics" },
+    { label: "Consultation Requests", icon: "chatbubble-ellipses-outline", path: "/stakeholder/consultation-requests" },
+    { label: "Messages", icon: "mail-outline", path: "/stakeholder/messages" },
+    { label: "Availability", icon: "time-outline", path: "/stakeholder/availability" },
+    { label: "Earnings", icon: "wallet-outline", path: "/stakeholder/earnings" },
+    { label: "Consultant Profile", icon: "person-circle-outline", path: "/stakeholder/consultant-profile" },
   ];
 
   const customerItems = [

@@ -46,6 +46,25 @@ export const generatePitchSummary = async (description) => {
   }
 };
 
+// Helper: fetch with retries and exponential backoff
+const fetchWithRetry = async (url, options = {}, retries = 3, backoff = 500) => {
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+      if (attempt < retries) {
+        const wait = backoff * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
+  }
+  throw lastError;
+};
+
 /**
  * 🤖 Performs risk audit on milestones
  */
@@ -70,14 +89,13 @@ export const analyzeMilestoneRisk = async (milestoneTitle, description, amount) 
 export const evaluateStartup = async (startupData) => {
   try {
     // Note: Change 10.0.2.2 to your laptop's IP (e.g. 192.168.x.x) if using a physical phone
-    const response = await fetch("http://10.0.2.2:5000/evaluate-startup", {
+    return await fetchWithRetry("http://10.0.2.2:5000/evaluate-startup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(startupData),
     });
-    return await response.json();
   } catch (error) {
-    console.log("Startup evaluation API not reachable, using fallback.");
+    console.warn("Startup evaluation API not reachable after retries, using fallback.", error);
     return { score: 91, recommendation: "Highly Recommended" };
   }
 };
@@ -87,14 +105,13 @@ export const evaluateStartup = async (startupData) => {
  */
 export const predictRisk = async (businessData) => {
   try {
-    const response = await fetch("http://10.0.2.2:5000/predict-risk", {
+    return await fetchWithRetry("http://10.0.2.2:5000/predict-risk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(businessData),
     });
-    return await response.json();
   } catch (error) {
-    console.log("Risk prediction API not reachable, using fallback.");
+    console.warn("Risk prediction API not reachable after retries, using fallback.", error);
     return { riskScore: 15, riskLevel: "Low" };
   }
 };
@@ -104,14 +121,13 @@ export const predictRisk = async (businessData) => {
  */
 export const detectFraud = async (data) => {
   try {
-    const response = await fetch("http://10.0.2.2:5000/detect-fraud", {
+    return await fetchWithRetry("http://10.0.2.2:5000/detect-fraud", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    return await response.json();
   } catch (error) {
-    console.log("Fraud detection API not reachable, using fallback.");
+    console.warn("Fraud detection API not reachable after retries, using fallback.", error);
     return { isFraud: false, alerts: ["No suspicious activity"] };
   }
 };

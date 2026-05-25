@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const templates = require("./emailTemplates");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const Stripe = require("stripe");
+const { defineSecret } = require("firebase-functions/params");
 
 admin.initializeApp();
 
@@ -34,15 +35,19 @@ const geminiKeyEnv = getSecret("GEMINI_API_KEY", "gemini.api_key");
 const emailUser = getSecret("EMAIL_USER", "email.user");
 const emailPass = getSecret("EMAIL_PASS", "email.pass");
 
+const stripeSecretParam = defineSecret("STRIPE_SECRET_KEY");
+const stripeWebhookSecretParam = defineSecret("STRIPE_WEBHOOK_SECRET");
+
 if (!stripeSecret) {
   console.warn("STRIPE_SECRET_KEY not configured. Set via .env (local) or `firebase functions:config:set stripe.secret_key=...` (production)");
 }
 
 function getStripeClient() {
-  if (!stripeSecret) {
+  const secret = stripeSecretParam.value() || stripeSecret;
+  if (!secret) {
     throw new Error("STRIPE_SECRET_KEY is not configured.");
   }
-  return new Stripe(stripeSecret);
+  return new Stripe(secret);
 }
 
 // Initialize Gemini AI
@@ -167,7 +172,7 @@ exports.notifyEntrepreneurOnUpdate = onDocumentUpdated(
 /* =====================================================
    3️⃣ Create Stripe Payment Intent for Investments
 ===================================================== */
-exports.createPaymentIntent = onCall(async (request) => {
+exports.createPaymentIntent = onCall({ secrets: [stripeSecretParam] }, async (request) => {
   const { amount, currency } = request.data;
   const uid = request.auth?.uid;
 
@@ -197,7 +202,7 @@ exports.createPaymentIntent = onCall(async (request) => {
 /* =====================================================
    4️⃣ Create Stripe Connect Express Account
 ===================================================== */
-exports.createConnectAccount = onCall(async (request) => {
+exports.createConnectAccount = onCall({ secrets: [stripeSecretParam] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
@@ -232,7 +237,7 @@ exports.createConnectAccount = onCall(async (request) => {
 /* =====================================================
    5️⃣ Get Stripe Connect Onboarding Link
 ===================================================== */
-exports.createConnectAccountLink = onCall(async (request) => {
+exports.createConnectAccountLink = onCall({ secrets: [stripeSecretParam] }, async (request) => {
   const { accountId } = request.data;
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
@@ -253,7 +258,7 @@ exports.createConnectAccountLink = onCall(async (request) => {
 /* =====================================================
    6️⃣ Fetch Connect Account Balance
 ===================================================== */
-exports.getConnectBalance = onCall(async (request) => {
+exports.getConnectBalance = onCall({ secrets: [stripeSecretParam] }, async (request) => {
   const { accountId } = request.data;
   if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
 
@@ -269,18 +274,154 @@ exports.getConnectBalance = onCall(async (request) => {
 /* =====================================================
    7️⃣ Process Payout
 ===================================================== */
-exports.processConnectPayout = onCall(async (request) => {
+exports.processConnectPayout = onCall({ secrets: [stripeSecretParam] }, async (request) => {
   const { accountId, amount } = request.data;
-  if (!request.auth?.uid) throw new HttpsError("unauthenticated", "You must be logged in.");
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "You must be logged in.");
+
+  const amountDollars = Number(amount) / 100;
+  if (!amountDollars || amountDollars <= 0) {
+    throw new HttpsError("invalid-argument", "A valid payout amount is required.");
+  }
 
   try {
-    const stripe = getStripeClient();
-    const payout = await stripe.payouts.create({ amount, currency: "usd" }, { stripeAccount: accountId });
-    return { payout };
+    const db = admin.firestore();
+    const walletRef = db.collection("wallets").doc(uid);
+    const payoutRef = db.collection("payouts").doc();
+
+    let walletBalance = 0;
+
+    await db.runTransaction(async (transaction) => {
+      const walletSnap = await transaction.get(walletRef);
+      if (!walletSnap.exists) {
+        throw new HttpsError("failed-precondition", "Wallet not found.");
+      }
+
+      walletBalance = Number(walletSnap.data().balance || 0);
+      if (walletBalance < amountDollars) {
+        throw new HttpsError("failed-precondition", "Insufficient wallet balance.");
+      }
+
+      transaction.update(walletRef, {
+        balance: walletBalance - amountDollars,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      transaction.set(payoutRef, {
+        userId: uid,
+        accountId: accountId || null,
+        amount: amountDollars,
+        currency: "usd",
+        status: "processing",
+        source: "wallet",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        bankLast4: "Bank",
+      });
+    });
+
+    let stripePayout = null;
+    try {
+      if (accountId) {
+        const stripe = getStripeClient();
+        stripePayout = await stripe.payouts.create({ amount, currency: "usd" }, { stripeAccount: accountId });
+
+        await payoutRef.set(
+          {
+            status: stripePayout.status || "paid",
+            stripePayoutId: stripePayout.id,
+            arrivalDate: stripePayout.arrival_date ? new Date(stripePayout.arrival_date * 1000) : null,
+          },
+          { merge: true }
+        );
+      } else {
+        await payoutRef.set({ status: "queued" }, { merge: true });
+      }
+    } catch (stripeError) {
+      await payoutRef.set(
+        {
+          status: "queued",
+          lastError: stripeError.message,
+        },
+        { merge: true }
+      );
+    }
+
+    return { success: true, payoutId: payoutRef.id, stripePayout };
   } catch (error) {
     throw new HttpsError("internal", error.message);
   }
 });
+
+  /* =====================================================
+     11️⃣ Fund Connected Account On Release
+     Callable by admins to transfer platform funds into a Connect account
+     This will create a Stripe Transfer and record it in `transfers`.
+  ===================================================== */
+  exports.fundConnectAccount = onCall({ secrets: [stripeSecretParam] }, async (request) => {
+    const { targetUserId, amountCents, idempotencyKey, investmentId } = request.data;
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "You must be logged in.");
+
+    const db = admin.firestore();
+
+    // Only allow admin callers to invoke this
+    const callerSnap = await db.collection('users').doc(uid).get();
+    if (!callerSnap.exists || callerSnap.data().role !== 'admin') {
+      throw new HttpsError('permission-denied', 'Only admins can call this function.');
+    }
+
+    if (!targetUserId || !amountCents) {
+      throw new HttpsError('invalid-argument', 'targetUserId and amountCents are required.');
+    }
+
+    const userSnap = await db.collection('users').doc(targetUserId).get();
+    if (!userSnap.exists) {
+      throw new HttpsError('not-found', 'Target user not found.');
+    }
+
+    const accountId = userSnap.data().stripeAccountId;
+    if (!accountId) {
+      throw new HttpsError('failed-precondition', 'Target user does not have a connected Stripe account.');
+    }
+
+    try {
+      const stripe = getStripeClient();
+      const transfer = await stripe.transfers.create(
+        { amount: amountCents, currency: 'usd', destination: accountId },
+        { idempotencyKey: idempotencyKey || `release-${investmentId || Date.now()}` }
+      );
+
+      const transferRef = db.collection('transfers').doc(transfer.id);
+      await transferRef.set({
+        id: transfer.id,
+        userId: targetUserId,
+        amount: amountCents / 100,
+        currency: 'usd',
+        status: transfer.status,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        stripeResponse: transfer,
+        investmentId: investmentId || null
+      });
+
+      return { success: true, transferId: transfer.id };
+    } catch (err) {
+      // Record a failed transfer attempt for later reconciliation
+      const recordRef = db.collection('transfers').doc();
+      await recordRef.set({
+        userId: targetUserId,
+        amount: amountCents / 100,
+        currency: 'usd',
+        status: 'failed',
+        error: err.message,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        idempotencyKey: idempotencyKey || null,
+        investmentId: investmentId || null
+      });
+
+      console.error('Transfer error:', err);
+      throw new HttpsError('internal', err.message);
+    }
+  });
 
 /* =====================================================
    8️⃣ Stripe Connect Redirect
@@ -413,11 +554,12 @@ exports.onMilestoneStatusChangeEmail = onDocumentUpdated(
 /* =====================================================
    🔟 Stripe Webhook for Real-Time Payouts
 ===================================================== */
-exports.stripeWebhook = onRequest(async (req, res) => {
+exports.stripeWebhook = onRequest({ secrets: [stripeSecretParam, stripeWebhookSecretParam] }, async (req, res) => {
   const signature = req.headers["stripe-signature"];
   const stripe = getStripeClient();
 
-  if (!webhookSecret) {
+  const webhookSecretValue = stripeWebhookSecretParam.value() || webhookSecret;
+  if (!webhookSecretValue) {
     console.error("STRIPE_WEBHOOK_SECRET is not configured.");
     return res.status(500).send("Webhook secret is not configured.");
   }
@@ -431,7 +573,7 @@ exports.stripeWebhook = onRequest(async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.rawBody,
       signature,
-      webhookSecret
+      webhookSecretValue
     );
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);

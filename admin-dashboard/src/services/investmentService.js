@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   orderBy
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../firebase/firebaseConfig';
 
 const investmentsCollection = collection(db, 'investments');
@@ -84,4 +85,18 @@ export async function releaseInvestment(investment) {
       }, { merge: true });
     }
   });
+
+  // After releasing and crediting the wallet, attempt to fund the user's Stripe Connect account
+  try {
+    const functions = getFunctions();
+    const fundConnect = httpsCallable(functions, 'fundConnectAccount');
+    await fundConnect({
+      targetUserId: entrepreneurId,
+      amountCents: Math.round(amount * 100),
+      idempotencyKey: `release-${id}`,
+      investmentId: id
+    });
+  } catch (err) {
+    console.error('Failed to initiate transfer to connected account:', err?.message || err);
+  }
 }

@@ -16,10 +16,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../../firebaseConfig';
-import matchAlgorithm from '../../utils/matchAlgorithm';
-import { getCurrentUserProfile, subscribeToRecommendations } from '../../services/recommendationService';
+import matchAlgorithm, { calculateMatchScore } from '../../utils/matchAlgorithm';
+import { getCurrentUserProfile } from '../../services/recommendationService';
 
 const getMatchTone = (score) => {
   if (score >= 80) {
@@ -119,6 +119,7 @@ export default function RoleRecommendationsScreen({ mode = 'investor' }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [selectedFilter, setSelectedFilter] = useState('all');
 
   const sendConnection = async (investor) => {
     if (!currentUser) return;
@@ -185,22 +186,73 @@ export default function RoleRecommendationsScreen({ mode = 'investor' }) {
   useEffect(() => {
     if (!currentUser || !userData) return;
 
-    const unsubscribe = subscribeToRecommendations(
-      currentUser.uid,
-      userData,
-      matchAlgorithm,
-      (ranked) => {
-        setRecommendations(ranked);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Recommendation error:', error);
-        setLoading(false);
-      }
-    );
+    let unsubscribe;
 
-    return unsubscribe;
-  }, [currentUser, userData]);
+    if (mode === 'investor') {
+      // For investors: subscribe to pitches collection
+      const q = query(
+        collection(db, 'pitches'),
+        where('status', 'in', ['Open', 'pending', 'approved', 'accepted', 'active', 'funded'])
+      );
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const prefs = {
+            interests: userData?.interests || [],
+            maxInvestment: Number(userData?.maxInvestment) || Number.MAX_SAFE_INTEGER,
+          };
+          const ranked = list
+            .map((pitch) => {
+              const match = calculateMatchScore(pitch, prefs);
+              return {
+                ...pitch,
+                score: match.score,
+                matchPercent: match.score,
+                matchReason: match.matchReason,
+              };
+            })
+            .sort((a, b) => b.score - a.score);
+          setRecommendations(ranked);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Pitches subscription failed:', error);
+          setLoading(false);
+        }
+      );
+    } else {
+      // For entrepreneurs: subscribe to target users (investors)
+      const q = query(collection(db, 'users'), where('role', 'in', ['investor', 'Investor']));
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const ranked = matchAlgorithm(userData, list);
+          setRecommendations(ranked);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Investors subscription failed:', error);
+          setLoading(false);
+        }
+      );
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [currentUser, userData, mode]);
+
+  const filteredRecommendations = useMemo(() => {
+    return recommendations.filter((item) => {
+      const score = item.score || 0;
+      if (selectedFilter === 'high') return score >= 80;
+      if (selectedFilter === 'medium') return score >= 50 && score < 80;
+      if (selectedFilter === 'low') return score < 50;
+      return true;
+    });
+  }, [recommendations, selectedFilter]);
 
   return (
     <View style={styles.container}>
@@ -231,31 +283,33 @@ export default function RoleRecommendationsScreen({ mode = 'investor' }) {
             <Text style={styles.heroHelper}>{copy.heroHelper}</Text>
 
             <View style={styles.legendRow}>
-              <LegendPill label="80%+" tone="high" />
-              <LegendPill label="50-79%" tone="medium" />
-              <LegendPill label="Under 50%" tone="low" />
+              <LegendPill label="80%+" tone="high" active={selectedFilter === 'high'} onPress={() => setSelectedFilter(selectedFilter === 'high' ? 'all' : 'high')} />
+              <LegendPill label="50-79%" tone="medium" active={selectedFilter === 'medium'} onPress={() => setSelectedFilter(selectedFilter === 'medium' ? 'all' : 'medium')} />
+              <LegendPill label="Under 50%" tone="low" active={selectedFilter === 'low'} onPress={() => setSelectedFilter(selectedFilter === 'low' ? 'all' : 'low')} />
             </View>
           </LinearGradient>
 
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>{copy.sectionTitle}</Text>
-            <Text style={styles.sectionCount}>{recommendations.length} matches</Text>
+            <Text style={styles.sectionCount}>
+              {filteredRecommendations.length} {filteredRecommendations.length === 1 ? 'match' : 'matches'}
+            </Text>
           </View>
           <Text style={styles.sectionSubtitle}>{copy.sectionSubtitle}</Text>
 
           {loading ? (
             <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 32 }} />
-          ) : recommendations.length === 0 ? (
+          ) : filteredRecommendations.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconWrap}>
                 <Ionicons name="scan-outline" size={28} color="#2563EB" />
               </View>
-              <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
-              <Text style={styles.emptyText}>{copy.emptyText}</Text>
+              <Text style={styles.emptyTitle}>No matching records found</Text>
+              <Text style={styles.emptyText}>Try selecting a different match score filter above or updating your profile interests.</Text>
             </View>
           ) : (
             <View style={styles.cardList}>
-              {recommendations.map((item) => {
+              {filteredRecommendations.map((item) => {
                 const tone = getMatchTone(item.score || 0);
                 const isInvestorMode = mode === 'investor';
                 const title = isInvestorMode ? (item.businessName || item.title || item.name || 'Startup') : (item.name || item.fullName || 'Investor');
@@ -349,17 +403,27 @@ export default function RoleRecommendationsScreen({ mode = 'investor' }) {
   );
 }
 
-const LegendPill = ({ label, tone }) => {
+const LegendPill = ({ label, tone, active, onPress }) => {
   const colors = {
-    high: { bg: 'rgba(16, 185, 129, 0.18)', text: '#D1FAE5', border: 'rgba(110, 231, 183, 0.35)' },
-    medium: { bg: 'rgba(249, 115, 22, 0.18)', text: '#FFEDD5', border: 'rgba(253, 186, 116, 0.35)' },
-    low: { bg: 'rgba(239, 68, 68, 0.18)', text: '#FEE2E2', border: 'rgba(252, 165, 165, 0.35)' },
+    high: { bg: 'rgba(16, 185, 129, 0.18)', text: '#D1FAE5', border: 'rgba(110, 231, 183, 0.35)', activeBg: '#10B981' },
+    medium: { bg: 'rgba(249, 115, 22, 0.18)', text: '#FFEDD5', border: 'rgba(253, 186, 116, 0.35)', activeBg: '#F97316' },
+    low: { bg: 'rgba(239, 68, 68, 0.18)', text: '#FEE2E2', border: 'rgba(252, 165, 165, 0.35)', activeBg: '#EF4444' },
   };
 
   return (
-    <View style={[styles.legendPill, { backgroundColor: colors[tone].bg, borderColor: colors[tone].border }]}>
-      <Text style={[styles.legendText, { color: colors[tone].text }]}>{label}</Text>
-    </View>
+    <TouchableOpacity 
+      style={[
+        styles.legendPill, 
+        { 
+          backgroundColor: active ? colors[tone].activeBg : colors[tone].bg, 
+          borderColor: colors[tone].border 
+        }
+      ]}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.legendText, { color: active ? '#FFFFFF' : colors[tone].text }]}>{label}</Text>
+    </TouchableOpacity>
   );
 };
 
