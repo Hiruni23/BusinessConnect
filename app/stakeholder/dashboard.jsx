@@ -47,6 +47,7 @@ export default function StakeholderDashboard() {
   const [meetingsCount, setMeetingsCount] = useState(0);
   const [hasUnread, setHasUnread] = useState(false);
   const [milestonesToReview, setMilestonesToReview] = useState(0);
+  const [portfolioInvested, setPortfolioInvested] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -101,7 +102,19 @@ export default function StakeholderDashboard() {
 
     const unsubReview = onSnapshot(query(collection(db, "milestones"), where("status", "==", "completed")), (snapshot) => setMilestonesToReview(snapshot.size), (error) => handleSnapshotError("Milestones review", error));
 
-    return () => { unsubProjects(); unsubPulse(); unsubNotifs(); unsubMeetings(); unsubReview(); };
+    const unsubInvestments = onSnapshot(collection(db, "investments"), (snapshot) => {
+        const total = snapshot.docs.reduce((acc, docSnap) => acc + Number(docSnap.data().amount || 0), 0);
+        setPortfolioInvested(total);
+    }, (error) => handleSnapshotError("Investments", error));
+
+    return () => { 
+      unsubProjects(); 
+      unsubPulse(); 
+      unsubNotifs(); 
+      unsubMeetings(); 
+      unsubReview(); 
+      unsubInvestments();
+    };
   }, [user, userData]);
 
   const chartData = useMemo(() => [
@@ -196,15 +209,15 @@ export default function StakeholderDashboard() {
              </Animated.View>
 
              <Animated.View entering={FadeInDown.delay(300).springify()} style={s.kpiCardWrapper}>
-               <TouchableOpacity style={s.kpiCard} onPress={() => router.push("/stakeholder/analytics")}>
-                  <BlurView intensity={isDark ? 30 : 50} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
-                  <Text style={s.kpiTag}>ALPHA ROI</Text>
-                  <Text style={s.kpiValue}>92</Text>
-                  <View style={s.kpiProgress}>
-                      <View style={[s.kpiFill, { width: '85%', backgroundColor: isDark ? '#34D399' : '#10B981' }]} />
-                  </View>
-               </TouchableOpacity>
-             </Animated.View>
+                <TouchableOpacity style={s.kpiCard} onPress={() => router.push("/stakeholder/analytics")}>
+                   <BlurView intensity={isDark ? 30 : 50} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
+                   <Text style={s.kpiTag}>COMMITTED</Text>
+                   <Text style={s.kpiValue}>${portfolioInvested >= 1000 ? (portfolioInvested / 1000).toFixed(0) + 'k' : portfolioInvested}</Text>
+                   <View style={s.kpiProgress}>
+                       <View style={[s.kpiFill, { width: '85%', backgroundColor: isDark ? '#34D399' : '#10B981' }]} />
+                   </View>
+                </TouchableOpacity>
+              </Animated.View>
           </View>
 
           {/* VIRTUAL COMMAND CENTER */}
@@ -222,6 +235,8 @@ export default function StakeholderDashboard() {
               <Ionicons name="chevron-forward" size={20} color="#fff" />
             </TouchableOpacity>
           </Animated.View>
+
+          
 
           {/* POLISHED MARKET CHART */}
           <Animated.View entering={FadeInDown.delay(400).springify()} style={s.chartSection}>

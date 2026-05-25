@@ -184,6 +184,38 @@ export default function ProfessionalInvestorProfile() {
               onChangeText={(t) => setUserData({...userData, company: t})}
               icon="business"
             />
+            
+            <ProfileField 
+              label="Maximum Investment Limit ($)" 
+              value={userData.maxInvestment !== undefined && userData.maxInvestment !== null ? String(userData.maxInvestment) : ""} 
+              onChangeText={(t) => setUserData({...userData, maxInvestment: t ? Number(t) : ""})}
+              icon="cash"
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.fieldLabel}>Sectors of Interest</Text>
+            <View style={styles.interestsContainer}>
+              {["Education & Training", "Fashion & Apparel", "Food & Beverage", "Travel & Tourism", "Technology & Software"].map((cat) => {
+                const isSelected = (userData.interests || []).includes(cat);
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.interestChip, isSelected && styles.interestChipActive]}
+                    onPress={() => {
+                      let updatedInterests = [...(userData.interests || [])];
+                      if (updatedInterests.includes(cat)) {
+                        updatedInterests = updatedInterests.filter(item => item !== cat);
+                      } else {
+                        updatedInterests.push(cat);
+                      }
+                      setUserData({ ...userData, interests: updatedInterests });
+                    }}
+                  >
+                    <Text style={[styles.interestChipText, isSelected && styles.interestChipTextActive]}>{cat}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             <Text style={styles.fieldLabel}>Executive Bio</Text>
             <TextInput
@@ -274,6 +306,11 @@ const styles = StyleSheet.create({
   fieldInput: { flex: 1, marginLeft: 12, fontSize: 15, color: '#1E293B', fontWeight: '600' },
   disabledField: { backgroundColor: '#F8FAFC' },
   bioInput: { backgroundColor: '#FFF', borderRadius: 16, padding: 15, height: 120, textAlignVertical: 'top', borderWidth: 1, borderColor: '#E2E8F0', fontSize: 15, color: '#1E293B', fontWeight: '500' },
+  interestsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  interestChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  interestChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+  interestChipText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+  interestChipTextActive: { color: '#FFF', fontWeight: '700' },
 
   footerActions: { paddingHorizontal: 25, gap: 12 },
   actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },

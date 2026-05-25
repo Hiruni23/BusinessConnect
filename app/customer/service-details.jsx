@@ -337,19 +337,7 @@ export default function ServiceDetails() {
                  </TouchableOpacity>
               </View>
            </View>
-
-           {/* PROVIDER MOCK */}
-           <View style={styles.providerCard}>
-              <Image source={{ uri: "https://i.pravatar.cc/100?u=tech" }} style={styles.providerImg} />
-              <View style={{ flex: 1 }}>
-                 <Text style={styles.providerName}>Innovation Hub Co.</Text>
-                 <Text style={styles.providerSub}>Top Tier Silicon Provider</Text>
-              </View>
-              <TouchableOpacity style={styles.msgBtn}>
-                 <Ionicons name="chatbubble-outline" size={20} color="#6366F1" />
-              </TouchableOpacity>
-           </View>
-        </View>
+         </View>
       </ScrollView>
 
       {/* FOOTER ACTIONS */}
@@ -381,7 +369,7 @@ function makeStyles(T, isDark) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: T.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    scrollContainer: { paddingBottom: 150 },
+    scrollContainer: { paddingBottom: 200 },
     
     heroSection: { height: height * 0.45, position: 'relative' },
     heroImage: { height: '100%', resizeMode: 'cover' },
@@ -417,13 +405,28 @@ function makeStyles(T, isDark) {
     qtyBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: T.surface2, justifyContent: 'center', alignItems: 'center' },
     qtyVal: { fontSize: 18, fontWeight: '900', color: T.text },
 
-    providerCard: { marginTop: 30, flexDirection: 'row', alignItems: 'center', backgroundColor: T.surface, padding: 15, borderRadius: 20, elevation: 4, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, borderWidth: 1, borderColor: isDark ? T.border : 'transparent' },
-    providerImg: { width: 44, height: 44, borderRadius: 22, marginRight: 12 },
-    providerName: { fontSize: 15, fontWeight: '800', color: T.text },
-    providerSub: { fontSize: 12, color: T.subtext, fontWeight: '600' },
-    msgBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : '#EFF6FF', justifyContent: 'center', alignItems: 'center' },
+    // provider styles removed
 
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 110, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 20, gap: 15, borderTopWidth: 1, borderTopColor: isDark ? T.border : 'rgba(0,0,0,0.05)', backgroundColor: isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.8)' },
+    footer: { 
+      position: 'absolute', 
+      bottom: 80, // Sits comfortably above bottom tab bar!
+      left: 0, 
+      right: 0, 
+      height: 90, 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      paddingHorizontal: 24, 
+      paddingBottom: 0, 
+      gap: 15, 
+      borderTopWidth: 1, 
+      borderTopColor: isDark ? T.border : 'rgba(0,0,0,0.05)', 
+      backgroundColor: isDark ? 'rgba(15,23,42,0.85)' : 'rgba(255,255,255,0.85)',
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: -4 }
+    },
     cartBtn: { flex: 1, height: 60, borderRadius: 20, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     cartBtnText: { color: T.text, fontWeight: '800', fontSize: 16 },
     buyBtn: { flex: 1.5, height: 60 },

@@ -55,7 +55,7 @@ export default function RoleSelection() {
         phoneNumber: phoneNumber || "",
         role: selectedRole,
         createdAt: serverTimestamp(),
-        setupComplete: false,
+        setupComplete: true,
       });
 
       // ✅ Navigate based on role

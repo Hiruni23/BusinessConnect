@@ -75,6 +75,7 @@ export default function EntrepreneurDashboard() {
   }, [user]);
 
   const isOpenStatus = (status) => ['open', 'pending', 'in review', 'review'].includes(String(status || '').toLowerCase());
+  const livePitches = pitches.filter((pitch) => Number(pitch.raisedAmount || 0) > 0);
 
   useEffect(() => {
     if (!user) return;
@@ -89,14 +90,15 @@ export default function EntrepreneurDashboard() {
     const unsubInvestors = onSnapshot(qInvestors, (snap) => {
       try {
         const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const cUser = userData ? { id: user.uid, ...userData, email: user.email } : null;
+        const cUser = {
+          id: user.uid,
+          email: user.email,
+          role: userData?.role || "entrepreneur",
+          ...(userData || {}),
+        };
 
-        if (cUser?.role?.toLowerCase() === 'entrepreneur') {
-          const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
-          setRecommendedInvestors(matches.slice(0, 5));
-        } else {
-          setRecommendedInvestors([]);
-        }
+        const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
+        setRecommendedInvestors(matches.slice(0, 5));
       } catch (error) {
         console.error("Error processing investors:", error);
       }
@@ -235,17 +237,17 @@ export default function EntrepreneurDashboard() {
                     </View>
                     <View style={styles.investorHeaderRow}>
                        <View style={styles.investorAvatar}>
-                          <Text style={styles.investorAvatarText}>{investor.name ? investor.name.charAt(0).toUpperCase() : 'I'}</Text>
+                          <Text style={styles.investorAvatarText}>{(investor.fullName || investor.name || 'I').charAt(0).toUpperCase()}</Text>
                        </View>
                        <View style={styles.investorInfo}>
-                          <Text style={styles.oTitle} numberOfLines={1}>{investor.name || "Investor"}</Text>
-                          <Text style={styles.oCategory}>{investor.location || "Global"}</Text>
+                          <Text style={styles.oTitle} numberOfLines={1}>{investor.fullName || investor.name || "Investor"}</Text>
+                          <Text style={styles.oCategory}>{investor.location || investor.city || "Global"}</Text>
                        </View>
                     </View>
                     <Text style={styles.aiMatchReason}>{investor.matchReason}</Text>
                     
                     <View style={styles.aiFooter}>
-                      <Text style={styles.aiScoreText}>{investor.score}% Match</Text>
+                       <Text style={styles.aiScoreText}>{Math.round(investor.score || investor.matchPercent || 0)}% Match</Text>
                       <TouchableOpacity style={styles.viewBtn} onPress={() => router.push(`/profile/${investor.id}`)}>
                         <Text style={styles.viewBtnText}>Profile</Text>
                       </TouchableOpacity>
@@ -268,7 +270,7 @@ export default function EntrepreneurDashboard() {
             <View style={styles.statBoxWrapper}>
               <View style={styles.statBox}>
                 <Ionicons name="rocket-outline" size={20} color="#4F46E5" />
-                <Text style={styles.statNumber}>{pitches.filter((p) => isOpenStatus(p.status)).length}</Text>
+                <Text style={styles.statNumber}>{livePitches.length}</Text>
                 <Text style={styles.statTitle}>Live Pitches</Text>
               </View>
             </View>
@@ -279,7 +281,7 @@ export default function EntrepreneurDashboard() {
             <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/funding-insights")}>
               <View style={styles.actionCard}>
                 <Ionicons name="list" size={20} color="#4F46E5" />
-                <Text style={styles.actionText}>Investors</Text>
+                <Text style={styles.actionText}>Funding</Text>
               </View>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/payouts")}>
@@ -300,46 +302,22 @@ export default function EntrepreneurDashboard() {
             <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/meetings")}>
               <View style={styles.actionCard}>
                 <Ionicons name="calendar-outline" size={20} color="#4F46E5" />
-                <Text style={styles.actionText}>Sessions</Text>
+                <Text style={styles.actionText}>Meeting Sessions</Text>
               </View>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { width: '64.5%' }]} onPress={() => router.push("/entrepreneur/virtual-pitch-meeting")}>
-              <LinearGradient colors={['#4F46E5', '#4338CA']} style={[styles.actionCard, { flexDirection: 'row', gap: 8 }]}>
-                <Ionicons name="videocam" size={18} color="#fff" />
-                <Text style={[styles.actionText, { color: '#fff', marginTop: 0 }]}>Virtual Pitch Session</Text>
-              </LinearGradient>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/entrepreneur/virtual-pitch-meeting")}>
+              <View style={styles.actionCard}>
+                <Ionicons name="videocam-outline" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Virtual Pitch Session</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/entrepreneur/consultation-requests')}>
+              <View style={styles.actionCard}>
+                <Ionicons name="chatbubbles-outline" size={20} color="#4F46E5" />
+                <Text style={styles.actionText}>Consultations</Text>
+              </View>
             </TouchableOpacity>
           </View>
-
-          {/* RECENT MESSAGES */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Conversations</Text>
-            <TouchableOpacity onPress={() => router.push("/entrepreneur/messages")}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {recentChats.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No recent messages</Text>
-            </View>
-          ) : (
-            recentChats.slice(0, 2).map((chat) => (
-              <TouchableOpacity key={chat.id} onPress={() => router.push(`/chat/${chat.id}`)}>
-                <View style={[styles.chatCard, chat.isUnread && styles.unreadChatCard]}>
-                  <View style={styles.chatAvatar}>
-                    <Ionicons name="chatbubble-ellipses" size={20} color="#4F46E5" />
-                    {chat.isUnread && <View style={styles.unreadDot} />}
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 15 }}>
-                    <Text style={styles.chatTitle} numberOfLines={1}>{chat.pitchTitle}</Text>
-                    <Text style={styles.chatMsg} numberOfLines={1}>{chat.lastMessage}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
 
           {/* ACTIVE PITCHES LIST */}
           <Text style={styles.sectionTitle}>Active Portfolio</Text>
@@ -491,5 +469,5 @@ const styles = StyleSheet.create({
   investorAvatarText: { color: '#4F46E5', fontSize: 16, fontWeight: '800' },
   investorInfo: { flex: 1 },
   oTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  oCategory: { fontSize: 11, fontWeight: '700', color: '#64748B', letterSpacing: 0.5, marginTop: 2 }
+  oCategory: { fontSize: 11, fontWeight: '700', color: '#64748B', letterSpacing: 0.5, marginTop: 2 },
 });

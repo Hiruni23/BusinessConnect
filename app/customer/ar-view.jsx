@@ -6,7 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from '../../firebaseConfig';
 import SideMenu from '../components/SideMenu';
 
@@ -19,7 +19,7 @@ export default function ARView() {
   const [scanned, setScanned] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [userData, setUserData] = useState(null);
-  const user = auth.currentUser;
+  const [user, setUser] = useState(null);
   
   // Animations
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -74,6 +74,14 @@ export default function ARView() {
     }, 3500);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser || null);
+    });
+
+    return () => unsubAuth();
   }, []);
 
   useEffect(() => {

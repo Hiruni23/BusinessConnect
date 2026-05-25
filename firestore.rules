@@ -42,9 +42,10 @@ service cloud.firestore {
         (
           exists(/databases/$(database)/documents/chats/$(chatId)) &&
           (
+            ('participants' in get(/databases/$(database)/documents/chats/$(chatId)).data && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants) ||
             get(/databases/$(database)/documents/chats/$(chatId)).data.investorId == request.auth.uid ||
             get(/databases/$(database)/documents/chats/$(chatId)).data.entrepreneurId == request.auth.uid ||
-            request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+            get(/databases/$(database)/documents/chats/$(chatId)).data.stakeholderId == request.auth.uid
           )
         )
       );
@@ -54,7 +55,8 @@ service cloud.firestore {
       return signedIn() && (
         data.investorId == request.auth.uid ||
         data.entrepreneurId == request.auth.uid ||
-        request.auth.uid in data.participants ||
+        data.stakeholderId == request.auth.uid ||
+        ('participants' in data && request.auth.uid in data.participants) ||
         isAdmin()
       );
     }
@@ -63,7 +65,7 @@ service cloud.firestore {
       return signedIn() && (
         data.callerId == request.auth.uid ||
         data.receiverId == request.auth.uid ||
-        request.auth.uid in data.participants ||
+        ('participants' in data && request.auth.uid in data.participants) ||
         isAdmin()
       );
     }
@@ -191,6 +193,27 @@ service cloud.firestore {
       }
     }
 
+    // --- CONSULTATIONS ---
+    match /consultations/{consultationId} {
+      allow read: if signedIn() && (
+        resource.data.stakeholderId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        isStakeholder() ||
+        isAdmin()
+      );
+
+      allow create: if signedIn();
+
+      allow update: if signedIn() && (
+        resource.data.stakeholderId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        isStakeholder() ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+
     // --- TRANSACTIONS ---
     match /transactions/{transactionId} {
       allow read: if signedIn() && (
@@ -216,11 +239,18 @@ service cloud.firestore {
       allow read: if signedIn() && (
         resource.data.investorId == request.auth.uid ||
         resource.data.entrepreneurId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid ||
+        isStakeholder() ||
         isAdmin()
       );
 
       allow create: if isInvestor();
-      allow update: if isAdmin();
+      allow update: if signedIn() && (
+        isAdmin() ||
+        resource.data.investorId == request.auth.uid ||
+        resource.data.entrepreneurId == request.auth.uid ||
+        resource.data.businessId == request.auth.uid
+      );
     }
 
     // --- WALLETS ---

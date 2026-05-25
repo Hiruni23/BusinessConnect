@@ -12,7 +12,13 @@ const getProfileInterests = (profile) => {
     return profile.interests;
   }
 
-  return [profile?.category, profile?.industry].filter(Boolean);
+  return [
+    profile?.category,
+    profile?.businessCategory,
+    profile?.industry,
+    profile?.targetInvestorCategory,
+    profile?.investorType,
+  ].filter(Boolean);
 };
 
 const getFundingCapacity = (profile) => Number(profile?.maxInvestment || profile?.budget || Number.MAX_SAFE_INTEGER);
@@ -28,17 +34,21 @@ export const calculateMatchScore = (pitch, investorPrefs) => {
     reasons.push("Strong category alignment");
   }
 
-  if (pitch.fundingGoal <= (investorPrefs.maxInvestment || Number.MAX_SAFE_INTEGER)) {
+  const fundingGoal = Number(pitch.fundingGoal || 0);
+  const maxInvestment = Number(investorPrefs.maxInvestment) || Number.MAX_SAFE_INTEGER;
+  if (fundingGoal > 0 && fundingGoal <= maxInvestment) {
     score += 30;
     reasons.push("Within preferred investment range");
   }
 
-  if (pitch.views > 50) {
+  const views = Number(pitch.views || 0);
+  if (views > 50) {
     score += 10;
     reasons.push("Good traction and visibility");
   }
 
-  if (pitch.interested > 5) {
+  const interested = Number(pitch.interested || 0);
+  if (interested > 5) {
     score += 10;
     reasons.push("Healthy investor interest");
   }

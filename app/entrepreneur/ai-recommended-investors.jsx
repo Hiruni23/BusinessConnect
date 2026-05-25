@@ -49,12 +49,12 @@ export default function AIRecommendedInvestors() {
     const unsubscribe = onSnapshot(qInvestors, (snap) => {
       try {
         const investorsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // Get user data from the same snapshot if possible
-        const userDocInSnap = snap.docs.find(d => d.id === user.uid);
-        let cUser = { id: user.uid, email: user.email };
-        if (userDocInSnap?.exists()) {
-          cUser = { ...cUser, ...userDocInSnap.data() };
-        }
+        const cUser = {
+          id: user.uid,
+          email: user.email,
+          role: userData?.role || "entrepreneur",
+          ...(userData || {}),
+        };
         
         const matches = matchAlgorithm(cUser, investorsList, "entrepreneur");
         setInvestors(matches);
@@ -112,18 +112,18 @@ export default function AIRecommendedInvestors() {
                   <View style={styles.cardTop}>
                     <View style={styles.avatarContainer}>
                       <Text style={styles.avatarText}>
-                        {investor.name ? investor.name.charAt(0).toUpperCase() : 'I'}
+                        {(investor.fullName || investor.name || 'I').charAt(0).toUpperCase()}
                       </Text>
                     </View>
                     <View style={styles.investorInfo}>
-                      <Text style={styles.investorName}>{investor.name || "Investor"}</Text>
+                      <Text style={styles.investorName}>{investor.fullName || investor.name || "Investor"}</Text>
                       <View style={styles.locationRow}>
                         <Ionicons name="location-outline" size={12} color="#64748B" />
-                        <Text style={styles.investorLocation}>{investor.location || "Global"}</Text>
+                        <Text style={styles.investorLocation}>{investor.location || investor.city || "Global"}</Text>
                       </View>
                     </View>
                     <View style={styles.scoreBadge}>
-                      <Text style={styles.scoreText}>{investor.score}%</Text>
+                      <Text style={styles.scoreText}>{Math.round(investor.score || investor.matchPercent || 0)}%</Text>
                       <Text style={styles.scoreLabel}>Match</Text>
                     </View>
                   </View>

@@ -88,7 +88,9 @@ export default function InvestNow() {
     // 3. Update Pitch Stats
     if (pitchId) {
       await updateDoc(doc(db, "pitches", pitchId), {
-        interested: increment(1)
+        interested: increment(1),
+        raisedAmount: increment(numericAmount),
+        updatedAt: serverTimestamp()
       });
     }
   };

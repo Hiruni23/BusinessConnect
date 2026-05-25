@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { PieChart, BarChart } from "react-native-gifted-charts";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 
 const screenWidth = Dimensions.get("window").width;
@@ -24,6 +25,7 @@ export default function StakeholderAnalytics() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
+  const navigation = useNavigation();
   const { theme: T, isDark } = useTheme();
   const s = makeStyles(T, isDark);
 
@@ -102,7 +104,7 @@ export default function StakeholderAnalytics() {
       
       <SafeAreaView style={{ flex: 1 }}>
         <View style={s.header}>
-           <TouchableOpacity onPress={() => router.back()} style={s.headerBtn}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
               <Ionicons name="arrow-back" size={24} color={T.text} />
            </TouchableOpacity>
            <Text style={s.headerTitle}>Market Insights</Text>
@@ -163,7 +165,7 @@ export default function StakeholderAnalytics() {
 
            {/* FUNDING BAR CHART */}
            <Animated.View entering={FadeInDown.delay(500).springify()} style={s.chartCard}>
-              <Text style={s.chartTitle}>Capital by Lifecycle</Text>>
+              <Text style={s.chartTitle}>Capital by Lifecycle</Text>
               <View style={{ marginTop: 20, alignItems: 'center' }}>
                  <BarChart
                     data={fundingData}
